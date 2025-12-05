@@ -20,30 +20,44 @@
 #include "input_strategies/file_signal_strategy.h"
 
 #include "compression_algorithms/sparrow/sparrow.h"
+#include "compression_algorithms/gorilla/gorilla.h"
 
 using namespace std;
 
 //g++ -fdiagnostics-color=always -g compression_algorithms/sparrow/encode.cpp compression_algorithms/sparrow/decode.cpp compression_algorithms/sparrow/frequency_selection.cpp helpers/bit_operations.cpp helpers/file_operations.cpp compare.cpp -o compare.exe -lfftw3 -lm
-int main(){
+int main(int algo_type){
 
-    //SignalContext inputContext(std::make_unique<DisturbedSignalStrategy>(10000, 1000, 1));
-    //vector<double> inputContext = input.getSignal();
-    //write_doublevector_to_file(signal, "signal_data.txt");
+    CompressionAlgorithm* algorithm = nullptr;
+    switch (algo_type) {
+        case 1: 
+            algorithm = new GorillaCompression();
+            break;
+        case 2: 
+            algorithm = new SparrowCompression();
+            break;
+        default:
+            cout << "Algorithm indicator " << algo_type << " does not exist." << endl;
+    }
 
-    string input_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\cpp\\data\\signal_data.txt";
-    string code_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\cpp\\data\\code.txt";
+    SignalContext inputContext(std::make_unique<DisturbedSignalStrategy>(100, 1, 1));
+    vector<double> inputSignal = inputContext.getSignal();
+    write_doublevector_to_file(inputSignal, "data/signal_data.txt");
+
+    string input_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\signal_data.txt";
+    string code_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\code.txt";
 
     SignalContext context(std::make_unique<FileSignalStrategy>(input_filepath));
-    SparrowCompression sparrow;
 
     vector<double> original = context.getSignal();
 
 
-    vector<bool> code = sparrow.encode(context);
+    vector<bool> code = algorithm->encode(context);
     write_bitvector_to_file(code, code_filepath);
 
     BinaryFileReader codeReader = {code_filepath};
-    vector<double> reconstructed = sparrow.decode(codeReader);
+    vector<double> reconstructed = algorithm->decode(codeReader);
+
+    delete algorithm;
 
     size_t N = original.size();
 
