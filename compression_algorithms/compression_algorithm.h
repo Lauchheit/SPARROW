@@ -12,10 +12,10 @@ class BinaryFileReader;
 
 class CompressionAlgorithm {
 public:
-    ~CompressionAlgorithm() = default;
+    virtual ~CompressionAlgorithm() = default;
     
-    virtual std::vector<bool> encode(const SignalContext&);
-    virtual std::vector<double> decode(const BinaryFileReader&);
+    virtual std::vector<bool> encode(const SignalContext&) = 0;
+    virtual std::vector<double> decode(const BinaryFileReader&) = 0;
 };
 
 #endif

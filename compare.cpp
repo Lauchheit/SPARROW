@@ -25,23 +25,28 @@
 using namespace std;
 
 //g++ -fdiagnostics-color=always -g compression_algorithms/sparrow/encode.cpp compression_algorithms/sparrow/decode.cpp compression_algorithms/sparrow/frequency_selection.cpp helpers/bit_operations.cpp helpers/file_operations.cpp compare.cpp -o compare.exe -lfftw3 -lm
-int main(int algo_type){
-
+int main(int argc, char* argv[]){
+    if(argc < 2) {
+        cerr << "Usage: compare.exe <algo_type>" << endl;
+        return 1;
+    }
+    
+    int algo_type = atoi(argv[1]);
     CompressionAlgorithm* algorithm = nullptr;
     switch (algo_type) {
         case 1: 
-            algorithm = new GorillaCompression();
+            algorithm = new SparrowCompression();
             break;
         case 2: 
-            algorithm = new SparrowCompression();
+            algorithm = new GorillaCompression();
             break;
         default:
             cout << "Algorithm indicator " << algo_type << " does not exist." << endl;
     }
 
-    SignalContext inputContext(std::make_unique<DisturbedSignalStrategy>(100, 1, 1));
-    vector<double> inputSignal = inputContext.getSignal();
-    write_doublevector_to_file(inputSignal, "data/signal_data.txt");
+    // SignalContext inputContext(std::make_unique<FileSignalStrategy>(10000, 1, 1));
+    // vector<double> inputSignal = inputContext.getSignal();
+    // write_doublevector_to_file(inputSignal, "data/signal_data.txt");
 
     string input_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\signal_data.txt";
     string code_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\code.txt";
