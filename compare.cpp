@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -10,6 +9,7 @@
 #include <iomanip>
 #include <fstream>
 #include <map>
+#include <chrono>
 
 #include "helpers/bit_operations.h"
 #include "helpers/file_operations.h"
@@ -25,6 +25,7 @@
 using namespace std;
 
 //g++ -fdiagnostics-color=always -g compression_algorithms/sparrow/encode.cpp compression_algorithms/sparrow/decode.cpp compression_algorithms/sparrow/frequency_selection.cpp helpers/bit_operations.cpp helpers/file_operations.cpp compare.cpp -o compare.exe -lfftw3 -lm
+
 int main(int argc, char* argv[]){
     if(argc < 2) {
         cerr << "Usage: compare.exe <algo_type>" << endl;
@@ -41,42 +42,55 @@ int main(int argc, char* argv[]){
             algorithm = new GorillaCompression();
             break;
         default:
-            cout << "Algorithm indicator " << algo_type << " does not exist." << endl;
+            cerr << "Algorithm indicator " << algo_type << " does not exist." << endl;
+            return 1;
     }
-
-    // SignalContext inputContext(std::make_unique<FileSignalStrategy>(10000, 1, 1));
-    // vector<double> inputSignal = inputContext.getSignal();
-    // write_doublevector_to_file(inputSignal, "data/signal_data.txt");
 
     string input_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\signal_data.txt";
     string code_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\code.txt";
+    string decode_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\decode.txt";
 
     SignalContext context(std::make_unique<FileSignalStrategy>(input_filepath));
-
     vector<double> original = context.getSignal();
 
-
+    // Time encoding
+    auto encode_start = chrono::high_resolution_clock::now();
     vector<bool> code = algorithm->encode(context);
+    auto encode_end = chrono::high_resolution_clock::now();
+    auto encode_duration = chrono::duration_cast<chrono::milliseconds>(encode_end - encode_start);
+    
     write_bitvector_to_file(code, code_filepath);
 
     BinaryFileReader codeReader = {code_filepath};
+    
+    // Time decoding
+    auto decode_start = chrono::high_resolution_clock::now();
     vector<double> reconstructed = algorithm->decode(codeReader);
+    auto decode_end = chrono::high_resolution_clock::now();
+    auto decode_duration = chrono::duration_cast<chrono::milliseconds>(decode_end - decode_start);
+    
+    write_doublevector_to_file(reconstructed, decode_filepath);
 
     delete algorithm;
 
     size_t N = original.size();
 
-    if(N!= reconstructed.size()){
-        cout << "ERROR: reconstructed signal has unequal entries." << endl << "Original: " << N << endl << "Reconstruction: " << reconstructed.size();
+    if(N != reconstructed.size()){
+        cerr << "ERROR: reconstructed signal has unequal entries." << endl 
+             << "Original: " << N << endl 
+             << "Reconstruction: " << reconstructed.size() << endl;
+        return 1;
     }
 
     int error = 0;
     for(int i=0; i<N; i++){
         error += abs(original[i] - reconstructed[i]);
     }
-    cout << endl << "Absolute reconstruction error: " << error;
+    
+    // Print timing and error to stderr in a parseable format
+    cerr << "ENCODE_TIME_MS:" << encode_duration.count() << endl;
+    cerr << "DECODE_TIME_MS:" << decode_duration.count() << endl;
+    cerr << "RECONSTRUCTION_ERROR:" << error << endl;
 
-    return 0;
-
-
+    return error ? 1 : 0;
 }

@@ -86,7 +86,7 @@ std::vector<FrequencyComponent> selectOptimalFrequencies(
         if(Ai < GlobalParams::FREQUENCY_THRESHOLD) break;
         if(Ai < max_amplitude/GlobalParams::RELATIVE_FREQUENCY_THRESHHOLD) break;
         if(selected_frequencies.size() > pow(2,GlobalParams::BITS_FOR_SAVED_FREQUENCIES)-1) break; //case: frequencies would exceed uint16 size
-        
+        if(selected_frequencies.size() > 100) break;
         double epsilon_new = epsilon - (2.0 * Ai / M_PI);
         
         if(epsilon_new <= 0) {

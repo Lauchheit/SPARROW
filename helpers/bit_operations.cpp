@@ -18,9 +18,9 @@ bitset<64> double_to_bits(double f) {
 }
 
 vector<bitset<64>> vector_double_to_bits(const vector<double>& x){
-    vector<bitset<64>> ret;
-    for(const auto& v : x){
-        ret.push_back(bitset<64>(double_to_bits(v)));
+    vector<bitset<64>> ret(x.size());  // Pre-size with default values
+    for(size_t i = 0; i < x.size(); i++){
+        ret[i] = double_to_bits(x[i]); 
     }
     return ret;
 }

@@ -6,7 +6,7 @@
 #include <bitset>
 #include <algorithm>
 #include <cmath>
-#include <map>
+#include <array>
 
 #include "../../helpers/bit_operations.h"
 #include "../../helpers/file_operations.h"
@@ -85,7 +85,7 @@ std::vector<bool> SparrowCompression::encode(const SignalContext& signalContext)
     }
     cout<< endl << "Average Error: " << sum_epsilon/N << endl;
 
-    map<int,int> first_1_distribution; 
+    array<int,65> first_1_distribution{}; 
     double first_1 = 0;
     for(const auto& r : r_bit)
     {
@@ -110,17 +110,17 @@ std::vector<bool> SparrowCompression::encode(const SignalContext& signalContext)
     double min_total_bits = 1e9;
 
     for(int wl = 1; wl <= 64; wl++){
-        double total_bits = 0;
-        
-        for (const auto& [lz, count] : first_1_distribution){
+    double total_bits = 0;
+    int prefix_length = ceil(log2(max(1, wl)));
+    
+        for(int lz = 0; lz <= 64; lz++){
+            int count = first_1_distribution[lz];
+            if(count == 0) continue;
+            
             if(lz >= wl) {
-                // Fall 1: LZ >= wl
-                // Control bit (1) + die Bits ohne die ersten wl Nullen
                 total_bits += count * (1 + 64 - wl);
             } else {
-                // Fall 2: LZ < wl  
-                // Control bit (0) + LZ-Angabe + alle 64 Bits ohne die LZ Nullen
-                total_bits += count * (1 + ceil(log2(max(1, wl))) + 64 - lz);
+                total_bits += count * (1 + prefix_length + 64 - lz); 
             }
         }
         
