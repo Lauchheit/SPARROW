@@ -67,7 +67,7 @@ int main(int argc, char* argv[]){
 
     // Time encoding
     auto encode_start = chrono::high_resolution_clock::now();
-    vector<bool> code = algorithm->encode(context);
+    vector<bool> code = algorithm->encode(input_filepath);
     auto encode_end = chrono::high_resolution_clock::now();
     auto encode_duration = chrono::duration_cast<chrono::milliseconds>(encode_end - encode_start);
     

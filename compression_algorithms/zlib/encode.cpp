@@ -3,9 +3,10 @@
 #include <cstring>
 #include <vector>
 
-std::vector<bool> ZlibCompression::encode(const SignalContext& context) {
+std::vector<bool> ZlibCompression::encode(const std::string& input_filepath) {
     std::cout << "\n---------- ZLIB ENCODE ----------" << std::endl;
     
+    SignalContext context(std::make_unique<FileSignalStrategy>(input_filepath));
     std::vector<double> signal = context.getSignal();
     size_t N = signal.size();
     

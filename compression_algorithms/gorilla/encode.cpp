@@ -94,11 +94,8 @@ vector<bool> encode_window_info(const MeaningfulWindow& window) {
         lz = 31;
     }
     
-    // CRITICAL FIX: meaningful_bits can be 1-64, but we only have 6 bits (0-63)
-    // Solution: Store (mb - 1), since mb can never be 0 for non-identical values
-    // This maps 1-64 to 0-63
     if(mb > 0) {
-        mb = mb - 1;  // Now mb is in range 0-63
+        mb = mb - 1;
     }
     
     if(mb > 63) {
@@ -124,10 +121,11 @@ vector<bool> encode_window_info(const MeaningfulWindow& window) {
     return result;
 }
 
-std::vector<bool> GorillaCompression::encode(const SignalContext& signalContext) {
+std::vector<bool> GorillaCompression::encode(const std::string& input_filepath) {
     cout << endl << "---------- GORILLA ENCODE ----------" << endl;
     
-    std::vector<double> values = signalContext.getSignal();
+    SignalContext context(std::make_unique<FileSignalStrategy>(input_filepath));
+    std::vector<double> values = context.getSignal();
     size_t N = values.size();
     
     if(N == 0) {

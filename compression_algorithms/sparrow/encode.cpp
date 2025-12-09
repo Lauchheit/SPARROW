@@ -47,10 +47,12 @@ vector<bool> get_window_prefix(int window_length, int v){
     return result;
 }
 
-std::vector<bool> SparrowCompression::encode(const SignalContext& signalContext){
+std::vector<bool> SparrowCompression::encode(const std::string& input_filepath){
 
     cout << endl << "---------- SPARROW ENCODE ----------" << endl;
-    std::vector<double> xs = signalContext.getSignal();
+
+    SignalContext context(std::make_unique<FileSignalStrategy>(input_filepath));
+    std::vector<double> xs = context.getSignal();
 
     size_t N = xs.size();
 

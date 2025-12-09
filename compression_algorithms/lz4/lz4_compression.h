@@ -7,7 +7,7 @@
 
 class LZ4Compression : public CompressionAlgorithm {
 public:
-    std::vector<bool> encode(const SignalContext& context) override;
+    std::vector<bool> encode(const std::string&) override;
     std::vector<double> decode(const BinaryFileReader& reader) override;
 };
 

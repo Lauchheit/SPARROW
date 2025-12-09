@@ -3,9 +3,10 @@
 #include <iostream>
 #include <cstring>
 
-std::vector<bool> ZstdCompression::encode(const SignalContext& context) {
+std::vector<bool> ZstdCompression::encode(const std::string& input_filepath) {
     std::cout << "\n---------- ZSTD ENCODE ----------" << std::endl;
     
+    SignalContext context(std::make_unique<FileSignalStrategy>(input_filepath));
     std::vector<double> signal = context.getSignal();
     size_t N = signal.size();
     

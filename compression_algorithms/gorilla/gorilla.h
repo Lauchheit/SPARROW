@@ -6,7 +6,7 @@
 
 class GorillaCompression : public CompressionAlgorithm {
 public:
-    std::vector<bool> encode(const SignalContext&) override;
+    std::vector<bool> encode(const std::string&) override;
     std::vector<double> decode(const BinaryFileReader&) override;
 };
 
