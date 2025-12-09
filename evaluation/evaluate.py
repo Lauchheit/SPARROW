@@ -12,7 +12,10 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 signal_path = os.path.join(script_dir, "..", "data", "signal_data.txt")
 code_path = os.path.join(script_dir, "..", "data", "code.txt")
 exe_path = os.path.join(script_dir, "..", "compare.exe")
-log_path = os.path.join(script_dir, "..", "data", "cpp_output.log")
+logs_dir = os.path.join(script_dir, "", "logs")
+
+# Create logs directory if it doesn't exist
+os.makedirs(logs_dir, exist_ok=True)
 
 
 def get_datasets():
@@ -24,36 +27,51 @@ def get_datasets():
     }
 
 
-def run_algorithm(algo_id, algo_name, data, log_file):
+import json
+
+def run_algorithm(algo_id, algo_name, data, dataset_name):
     """Run a single algorithm and return results."""
     # Save data
     with open(signal_path, "w") as f:
         for value in data:
             f.write(f"{value}\n")
     
-    log_file.write(f"\n--- {algo_name} Algorithm ---\n")
-    log_file.flush()
+    timing_path = os.path.join(script_dir, "..", "data", "timing.json")
     
-    result = subprocess.run(
-        ['compare.exe', str(algo_id)], 
-        stdout=log_file, 
-        stderr=subprocess.PIPE,
-        text=True
-    )
+    # Create algorithm-specific log file path
+    safe_algo_name = algo_name.lower().replace(' ', '_')
+    algo_log_path = os.path.join(logs_dir, f"{safe_algo_name}.log")
     
-    if result.stderr:
-        log_file.write(result.stderr)
-        log_file.flush()
+    # Open log file in append mode
+    with open(algo_log_path, 'a') as algo_log:
+        algo_log.write(f"\n{'='*80}\n")
+        algo_log.write(f"Dataset: {dataset_name} ({len(data)} samples)\n")
+        algo_log.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        algo_log.write(f"{'='*80}\n\n")
+        algo_log.flush()
+        
+        # Run algorithm
+        result = subprocess.run(
+            ['compare.exe', str(algo_id)], 
+            stdout=algo_log,
+            stderr=algo_log,  # Also capture stderr in log
+            text=True
+        )
     
-    # Parse results
+    # Read timing from JSON file
     encode_time = decode_time = error = None
-    for line in result.stderr.split('\n'):
-        if line.startswith('ENCODE_TIME_MS:'):
-            encode_time = int(line.split(':')[1])
-        elif line.startswith('DECODE_TIME_MS:'):
-            decode_time = int(line.split(':')[1])
-        elif line.startswith('RECONSTRUCTION_ERROR:'):
-            error = int(line.split(':')[1])
+    success = result.returncode == 0
+    
+    try:
+        if os.path.exists(timing_path):
+            with open(timing_path, 'r') as f:
+                timing_data = json.load(f)
+                encode_time = timing_data.get('encode_time_ms')
+                decode_time = timing_data.get('decode_time_ms')
+                error = timing_data.get('error')
+                success = timing_data.get('success', False)
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Warning: Could not read timing file: {e}")
     
     input_size = len(data) * 8  # bytes
     code_size = os.path.getsize(code_path)
@@ -65,7 +83,7 @@ def run_algorithm(algo_id, algo_name, data, log_file):
         'encode_time': encode_time,
         'decode_time': decode_time,
         'error': error,
-        'success': result.returncode == 0
+        'success': success
     }
 
 
@@ -76,41 +94,50 @@ def evaluate_all():
         2: "Gorilla", 
         3: "Zlib", 
         4: "LZ4", 
-        5: "Zstandard"
+        5: "Zstandard",
+        6: "Sparrow Elf"
     }
+    
+    # Clear/create fresh log files at the start of each run
+    for algo_name in algorithms.values():
+        safe_algo_name = algo_name.lower().replace(' ', '_')
+        algo_log_path = os.path.join(logs_dir, f"{safe_algo_name}.log")
+        with open(algo_log_path, 'w') as f:
+            f.write(f"{'='*80}\n")
+            f.write(f"Evaluation Run Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"{'='*80}\n")
     
     datasets = get_datasets()
     results = {}
     
-    with open(log_path, "w") as log_file:
-        log_file.write(f"\n{'='*60}\n")
-        log_file.write(f"Run started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        log_file.write(f"{'='*60}\n\n")
+    for dataset_name, data in datasets.items():
+        if data is None:
+            print(f"Failed to retrieve {dataset_name} data")
+            continue
         
-        for dataset_name, data in datasets.items():
-            if data is None:
-                print(f"Failed to retrieve {dataset_name} data")
-                continue
+        print(f"\n{'='*50}")
+        print(f"Dataset: {dataset_name} ({len(data)} samples)")
+        print(f"{'='*50}")
+        
+        results[dataset_name] = {}
+        
+        for algo_id, algo_name in algorithms.items():
+            print(f"Running {algo_name}...", end=" ")
             
-            print(f"\n{'='*50}")
-            print(f"Dataset: {dataset_name} ({len(data)} samples)")
-            print(f"{'='*50}")
-            
-            results[dataset_name] = {}
-            
-            for algo_id, algo_name in algorithms.items():
-                print(f"Running {algo_name}...", end=" ")
+            try:
+                result = run_algorithm(algo_id, algo_name, data, dataset_name)
+                results[dataset_name][algo_name] = result
                 
-                try:
-                    result = run_algorithm(algo_id, algo_name, data, log_file)
-                    results[dataset_name][algo_name] = result
-                    
+                if result['encode_time'] is not None and result['decode_time'] is not None:
                     print(f"✓ Ratio: {result['ratio']:.4f}, "
-                          f"Time: {result['encode_time']}+{result['decode_time']}ms")
-                
-                except Exception as e:
-                    print(f"✗ Error: {e}")
-                    results[dataset_name][algo_name] = None
+                          f"Time: {result['encode_time']}+{result['decode_time']}ms, "
+                          f"Error: {result['error']}")
+                else:
+                    print(f"✓ Ratio: {result['ratio']:.4f}, Time: FAILED TO PARSE")
+            
+            except Exception as e:
+                print(f"✗ Error: {e}")
+                results[dataset_name][algo_name] = None
     
     return results
 
@@ -130,8 +157,12 @@ def plot_results(results):
     width = 0.15
     
     for i, algo in enumerate(algorithms):
-        ratios = [results[ds][algo]['ratio'] if results[ds][algo] else 0 
-                  for ds in datasets]
+        ratios = []
+        for ds in datasets:
+            if results[ds][algo]:
+                ratios.append(results[ds][algo]['ratio'])
+            else:
+                ratios.append(0)
         ax.bar(x + i*width, ratios, width, label=algo)
     
     ax.set_xlabel('Dataset')
@@ -145,8 +176,12 @@ def plot_results(results):
     # 2. Encoding Speed
     ax = axes[0, 1]
     for i, algo in enumerate(algorithms):
-        times = [results[ds][algo]['encode_time'] if results[ds][algo] else 0 
-                 for ds in datasets]
+        times = []
+        for ds in datasets:
+            if results[ds][algo] and results[ds][algo]['encode_time'] is not None:
+                times.append(results[ds][algo]['encode_time'])
+            else:
+                times.append(0)
         ax.bar(x + i*width, times, width, label=algo)
     
     ax.set_xlabel('Dataset')
@@ -160,8 +195,12 @@ def plot_results(results):
     # 3. Decoding Speed
     ax = axes[1, 0]
     for i, algo in enumerate(algorithms):
-        times = [results[ds][algo]['decode_time'] if results[ds][algo] else 0 
-                 for ds in datasets]
+        times = []
+        for ds in datasets:
+            if results[ds][algo] and results[ds][algo]['decode_time'] is not None:
+                times.append(results[ds][algo]['decode_time'])
+            else:
+                times.append(0)
         ax.bar(x + i*width, times, width, label=algo)
     
     ax.set_xlabel('Dataset')
@@ -177,7 +216,7 @@ def plot_results(results):
     for i, algo in enumerate(algorithms):
         scores = []
         for ds in datasets:
-            if results[ds][algo]:
+            if results[ds][algo] and results[ds][algo]['encode_time'] is not None and results[ds][algo]['decode_time'] is not None:
                 r = results[ds][algo]
                 # Lower is better: ratio * total_time
                 score = r['ratio'] * (r['encode_time'] + r['decode_time'])
@@ -195,10 +234,11 @@ def plot_results(results):
     ax.grid(axis='y', alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig('compression_comparison.png', dpi=300, bbox_inches='tight')
+    plot_path = os.path.join(script_dir, '..', 'compression_comparison.png')
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.show()
     
-    print("\nVisualization saved as 'compression_comparison.png'")
+    print(f"\nVisualization saved as '{plot_path}'")
 
 
 def print_summary_table(results):
@@ -211,7 +251,7 @@ def print_summary_table(results):
         print(f"{'-'*80}")
         
         for algo_name, result in algos.items():
-            if result and result['success']:
+            if result and result['success'] and result['encode_time'] is not None and result['decode_time'] is not None:
                 total = result['encode_time'] + result['decode_time']
                 print(f"{algo_name:<12} {result['ratio']:>8.4f} {result['encode_time']:>9} "
                       f"{result['decode_time']:>9} {total:>11} {result['error']:>7}")
@@ -221,9 +261,10 @@ def print_summary_table(results):
 
 if __name__ == "__main__":
     print("Starting compression algorithm evaluation...")
+    print(f"Logs will be saved to: {logs_dir}/")
+    
     results = evaluate_all()
     
     print_summary_table(results)
     plot_results(results)
     
-    print(f"\nDetailed logs: {log_path}")

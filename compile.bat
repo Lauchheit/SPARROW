@@ -4,6 +4,10 @@ g++ -std=c++17 -g ^
     compression_algorithms/gorilla/decode.cpp ^
     compression_algorithms/sparrow/encode.cpp ^
     compression_algorithms/sparrow/decode.cpp ^
+    compression_algorithms/sparrow/sparrow_helpers.cpp ^
+    compression_algorithms/sparrow_elf/encode.cpp ^
+    compression_algorithms/sparrow_elf/decode.cpp ^
+    compression_algorithms/sparrow_elf/elf.cpp ^
     compression_algorithms/sparrow/frequency_selection.cpp ^
     compression_algorithms/zlib/encode.cpp ^
     compression_algorithms/zlib/decode.cpp ^
