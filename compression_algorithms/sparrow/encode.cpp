@@ -50,9 +50,6 @@ vector<bool> get_window_prefix(int window_length, int v){
 std::vector<bool> SparrowCompression::encode(const SignalContext& signalContext){
 
     cout << endl << "---------- SPARROW ENCODE ----------" << endl;
-
-    cout << "boop";
-
     std::vector<double> xs = signalContext.getSignal();
 
     size_t N = xs.size();
@@ -64,7 +61,7 @@ std::vector<bool> SparrowCompression::encode(const SignalContext& signalContext)
 
     cout << "Approximated Frequencies: " << frequencies.size() << endl;
     for(int i=0; i< std::min(frequencies.size(), static_cast<size_t>(10)); i++){
-        cout << frequencies[i].frequency << ": " << frequencies[i].amplitude <<" - " << frequencies[i].phase<< endl;
+        cout << frequencies[i].frequency << ": " << frequencies[i].amplitude <<" | " << frequencies[i].phase<< endl;
     }
 
     //Approximate signal

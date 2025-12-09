@@ -74,44 +74,63 @@ std::vector<FrequencyComponent> selectOptimalFrequencies(
     std::vector<FrequencyComponent> selected_frequencies;
     double cost_per_frequency = 3 * GlobalParams::PRECISION;
     
+    // Start with the original signal as the residual
+    std::vector<double> residual = signal;
+    
+    // Calculate initial average absolute error
     double epsilon = 0;
-    for(const auto& xi : signal) {
-        epsilon += std::abs(xi);
+    for(const auto& r : residual) {
+        epsilon += std::abs(r);
     }
     epsilon /= N;
-    double max_amplitude = spectrum.amplitudes[indices[0]];
+    
+    double max_amplitude = *std::max_element(spectrum.amplitudes.begin(), spectrum.amplitudes.end());
+    
     for(size_t idx : indices) {
         double Ai = spectrum.amplitudes[idx];
         
         if(Ai < GlobalParams::FREQUENCY_THRESHOLD) break;
         if(Ai < max_amplitude/GlobalParams::RELATIVE_FREQUENCY_THRESHHOLD) break;
-        if(selected_frequencies.size() > pow(2,GlobalParams::BITS_FOR_SAVED_FREQUENCIES)-1) break; //case: frequencies would exceed uint16 size
-        if(selected_frequencies.size() > 100) break;
-        double epsilon_new = epsilon - (2.0 * Ai / M_PI);
+        if(selected_frequencies.size() >= pow(2,GlobalParams::BITS_FOR_SAVED_FREQUENCIES)-1) break;
         
-        if(epsilon_new <= 0) {
-            selected_frequencies.push_back({
-                spectrum.frequencies[idx],
-                spectrum.amplitudes[idx],
-                spectrum.phases[idx]
-            });
-            epsilon = 0.0001;
-            continue;
+        // Reconstruct this single frequency component
+        std::vector<double> freq_component(N, 0.0);
+        for(int i = 0; i < N; i++) {
+            double t = i / sampleRate;
+            freq_component[i] = Ai * std::cos(2 * M_PI * spectrum.frequencies[idx] * t + spectrum.phases[idx]);
         }
         
+        // Calculate what the new residual would be
+        double epsilon_new = 0;
+        for(int i = 0; i < N; i++) {
+            epsilon_new += std::abs(residual[i] - freq_component[i]);
+        }
+        epsilon_new /= N;
+        
+        // Calculate benefit
         double delta_LZ = std::log2(epsilon / epsilon_new);
         double benefit = N * delta_LZ;
         
-        if(benefit > cost_per_frequency) {
+        std::cout << idx << ": " << Ai << " | eps=" << epsilon << " | eps_new=" << epsilon_new << " | delta_LZ=" << delta_LZ << " | benefit=" << benefit << " | ";
+        
+        if (delta_LZ > 0 && benefit > cost_per_frequency) {
             selected_frequencies.push_back({
                 spectrum.frequencies[idx],
                 spectrum.amplitudes[idx],
                 spectrum.phases[idx]
             });
+            
+            // Update residual by subtracting this frequency
+            for(int i = 0; i < N; i++) {
+                residual[i] -= freq_component[i];
+            }
+            
             epsilon = epsilon_new;
+            std::cout << "SELECTED";
         }
+        
+        std::cout << std::endl;
     }
-    
     
     return selected_frequencies;
 }

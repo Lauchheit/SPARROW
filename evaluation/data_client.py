@@ -11,7 +11,7 @@ def sinusoid(duration, fs, noise_factor)->np.array:
     samples = int(fs * duration)
     t = np.linspace(0, duration, samples)
     noise = generate_white_noise(len(t), noise_factor)
-    x = 1000 * np.sin(2 * np.pi * t * 8 -19) + 10000*np.sin(2 * np.pi * t*2) + 4000*np.cos(2*np.pi * 5.5 * t) + noise + 10000
+    x = 1000 * np.sin(2 * np.pi * t * 8 -19) + 10000*np.sin(2 * np.pi * t*2) + 4000*np.cos(2*np.pi * 5 * t) + noise + 2367
     return x
 
 
@@ -114,3 +114,33 @@ def open_meteo_data(latitude, longitude, start_date, end_date, variable='shortwa
     print(f"Retrieved {len(values)} data points")
     
     return values
+
+import pyedflib
+import urllib.request
+import os
+def physionet_eeg_data(patient='chb01', record='chb01_03', duration_minutes=60)->np.array:
+    try:
+        url = f"https://physionet.org/files/chbmit/1.0.0/{patient}/{record}.edf"
+        local_file = f"{record}.edf"
+        
+        print(f"Downloading {record}.edf...")
+        urllib.request.urlretrieve(url, local_file)
+        
+        f = pyedflib.EdfReader(local_file)
+        n_channels = f.signals_in_file
+        signal = f.readSignal(0)  # First channel
+        
+        # Truncate to requested duration (256 Hz)
+        max_samples = int(duration_minutes * 60 * 256)
+        signal = signal[:max_samples]
+        
+        f.close()
+        os.remove(local_file)
+        
+        print(f"Retrieved {len(signal)} samples")
+        return signal
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        print("Install pyedflib: pip install pyedflib")
+        return None

@@ -21,6 +21,9 @@
 
 #include "compression_algorithms/sparrow/sparrow.h"
 #include "compression_algorithms/gorilla/gorilla.h"
+#include "compression_algorithms/zlib/zlib.h"
+#include "compression_algorithms/lz4/lz4_compression.h"
+#include "compression_algorithms/zstd/zstd_compression.h"
 
 using namespace std;
 
@@ -40,6 +43,15 @@ int main(int argc, char* argv[]){
             break;
         case 2: 
             algorithm = new GorillaCompression();
+            break;
+        case 3:
+            algorithm = new ZlibCompression();
+            break;
+        case 4: 
+            algorithm = new LZ4Compression();
+            break;
+        case 5: 
+            algorithm = new ZstdCompression();
             break;
         default:
             cerr << "Algorithm indicator " << algo_type << " does not exist." << endl;
