@@ -111,7 +111,7 @@ std::vector<FrequencyComponent> selectOptimalFrequencies(
         double delta_LZ = std::log2(epsilon / epsilon_new);
         double benefit = N * delta_LZ;
         
-        std::cout << idx << ": " << Ai << " | eps=" << epsilon << " | eps_new=" << epsilon_new << " | delta_LZ=" << delta_LZ << " | benefit=" << benefit << " | ";
+        //std::cout << idx << ": " << Ai << " | eps=" << epsilon << " | eps_new=" << epsilon_new << " | delta_LZ=" << delta_LZ << " | benefit=" << benefit << " | ";
         
         if (delta_LZ > 0 && benefit > cost_per_frequency) {
             selected_frequencies.push_back({
@@ -126,10 +126,8 @@ std::vector<FrequencyComponent> selectOptimalFrequencies(
             }
             
             epsilon = epsilon_new;
-            std::cout << "SELECTED";
         }
         
-        std::cout << std::endl;
     }
     
     return selected_frequencies;

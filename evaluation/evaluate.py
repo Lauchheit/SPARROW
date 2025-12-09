@@ -21,7 +21,7 @@ os.makedirs(logs_dir, exist_ok=True)
 def get_datasets():
     """Retrieve all test datasets."""
     return {
-        'Tidal': data_client.NOAA_tidal_data('20230601', '20231231', interval='6'),
+        'Tidal': data_client.NOAA_tidal_data('20231031', '20231231', interval='6'),
         'Solar': data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation'),
         'Sinusoid': data_client.sinusoid(10000, 1, 1)
     }
@@ -31,12 +31,19 @@ import json
 
 def run_algorithm(algo_id, algo_name, data, dataset_name):
     """Run a single algorithm and return results."""
+
+
+    timing_path = os.path.join(script_dir, "..", "data", "timing.json")
     # Save data
     with open(signal_path, "w") as f:
         for value in data:
             f.write(f"{value}\n")
+
     
-    timing_path = os.path.join(script_dir, "..", "data", "timing.json")
+    for path in [code_path, timing_path]:
+            if os.path.exists(path):
+                os.remove(path)
+    
     
     # Create algorithm-specific log file path
     safe_algo_name = algo_name.lower().replace(' ', '_')
@@ -114,9 +121,15 @@ def evaluate_all():
         if data is None:
             print(f"Failed to retrieve {dataset_name} data")
             continue
+
+        
+        avg_len=0
+        for point in data:
+            avg_len += len(str(point))
         
         print(f"\n{'='*50}")
         print(f"Dataset: {dataset_name} ({len(data)} samples)")
+        print(avg_len/len(data))
         print(f"{'='*50}")
         
         results[dataset_name] = {}

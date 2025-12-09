@@ -162,5 +162,7 @@ int main(int argc, char* argv[]){
     timing_file << "}\n";
     timing_file.close();
 
+    cout << "==== ERROR: " << error << " ====";
+
     return error ? 1 : 0;
 }

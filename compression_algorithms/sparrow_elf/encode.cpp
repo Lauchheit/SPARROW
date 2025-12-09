@@ -64,6 +64,12 @@ vector<double> vector_string_to_double(const vector<string>& string_vector) {
     return result;
 }
 
+void print_bitvector(const std::vector<bool>& bits) {
+    for (bool bit : bits) {
+        std::cout << (bit ? '1' : '0');
+    }
+}
+
 std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepath){
 
     cout << endl << "---------- SPARROW ELF ENCODE ----------" << endl;
@@ -80,6 +86,14 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
     vector<int> erasure_positions(N);
 
     for(int i = 0; i < N; i++) {
+
+        if (!std::isfinite(xs[i]) || std::abs(xs[i]) == 0.0) {
+            alphas[i] = 0;
+            beta_stars[i] = 0;
+            erasure_positions[i] = 52;  // Don't erase
+            continue;
+        }
+
         alphas[i] = getDecimalPlaces(xs_strings[i]);
         beta_stars[i] = getSignificandCount(xs_strings[i]);
         erasure_positions[i] = calculateErasurePosition(xs[i], alphas[i]);
@@ -165,7 +179,7 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
     output.insert(output.end(), freq_count.begin(), freq_count.end());
 
     // 2. Frequency data (3 × 64 bits each)
-    cout << frequencies.size() << endl;
+    cout << "Saved frequencies: " << frequencies.size() << endl;
     for(const auto& f : frequencies){
         vector<bool> freq_bit = double_to_bitvector(f.frequency);
         output.insert(output.end(), freq_bit.begin(), freq_bit.end());
@@ -230,22 +244,45 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
         // Write metadata in proper order:
         // [ELF flag][beta_star if flag=1][Sparrow control][Sparrow prefix if control=0][significand]
         
+        cout << endl;
         // ELF metadata (per value)
         output.push_back(elf_applied);
+        cout << endl << "ec " << elf_applied << " " << " eb* ";
         if (elf_applied) {
             for(int b = 3; b >= 0; b--) {
                 output.push_back((beta_stars[i] >> b) & 1);
+                cout << ((beta_stars[i] >> b) & 1);
             }
         }
+
         
         // Sparrow metadata (per value)
         output.push_back(sparrow_control_bit);
+        cout << " sc " << sparrow_control_bit;
         if (!sparrow_control_bit) {
+            cout << " sp "; print_bitvector(sparrow_prefix);
+
             output.insert(output.end(), sparrow_prefix.begin(), sparrow_prefix.end());
         }
         
         // Significand data
-        output.insert(output.end(), significand.begin(), significand.end());
+        int kept_bits = 52 - bits_to_erase;
+        vector<bool> kept_significand(
+            significand.begin(),
+            significand.begin() + kept_bits
+        );
+        output.insert(output.end(),
+                    kept_significand.begin(),
+                    kept_significand.end() );
+
+        cout << " d "; 
+        print_bitvector(kept_significand);
+        cout << endl;
+        print_bitvector(ri_bitvec);
+        cout << endl;
+        cout << bitset_to_double(x_bit[i]) << endl;
+        cout << bitset_to_double(xs_bit[i]) << endl;
+        cout << bitset_to_double(ri ^ x_bit[i]) << endl;
     }
     
     int compression_size = output.size();

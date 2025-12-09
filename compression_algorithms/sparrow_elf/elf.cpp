@@ -63,38 +63,38 @@ struct EncodedValue {
     vector<bool> erased_value;
 };
 
-vector<bool> elfEraseResidual(const vector<bool>& residual_bits, 
-                               int alpha, 
-                               int beta_star, 
-                               int erasure_position) {
-    
+vector<bool> elfEraseResidual(const vector<bool>& residual_bits,
+                              int alpha,
+                              int beta_star,
+                              int erasure_position) {
+
     if (residual_bits.size() != 64) {
         throw std::invalid_argument("residual_bits must be exactly 64 bits");
     }
-    
-    vector<bool> result = residual_bits;  // Copy original
-    
+
+    vector<bool> result = residual_bits;
+
     int bits_to_erase = 52 - erasure_position;
-    
-    // Extract delta from original residual to check if it's non-zero
-    // Convert to uint64 to check the bits that would be erased
-    bitset<64> temp_bitset;
-    for(int i = 0; i < 64; i++) {
-        temp_bitset[63 - i] = residual_bits[i];
+    if (bits_to_erase <= 0) return result;
+
+    // Convert residual to uint64
+    bitset<64> temp;
+    for (int i = 0; i < 64; i++) {
+        temp[63 - i] = residual_bits[i];
     }
-    uint64_t residual_uint = temp_bitset.to_ullong();
-    uint64_t mask = (1ULL << bits_to_erase) - 1;
-    uint64_t delta = residual_uint & mask;
-    
-    // Check three conditions
+    uint64_t residual_uint = temp.to_ullong();
+
+    // Mask ONLY mantissa LSBs
+    uint64_t mantissa_mask = ((1ULL << bits_to_erase) - 1);
+    uint64_t delta = residual_uint & mantissa_mask;
+
     if (beta_star < 16 && delta != 0 && bits_to_erase > 4) {
-        // Erase mantissa bits (set to 0)
-        for (int j = 12 + erasure_position; j < 64; j++) {
-            result[j] = 0;
+        int erase_start = 64 - bits_to_erase;
+        for (int j = erase_start; j < 64; j++) {
+            result[64-j] = 0;
         }
     }
-    // If conditions not met, return unchanged residual
-    
+
     return result;
 }
 
