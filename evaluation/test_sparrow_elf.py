@@ -16,7 +16,7 @@ os.makedirs(data_dir, exist_ok=True)
 os.makedirs(logs_dir, exist_ok=True)
 
 # Create dataset: 100 zeros
-data = [1.2134,3.5532,1.1123]
+data = [1.2134, 0.75,1.1123, 5.2]
 
 print((data))
 

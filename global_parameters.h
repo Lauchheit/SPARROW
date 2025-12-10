@@ -9,9 +9,11 @@ namespace GlobalParams {
     constexpr double FREQUENCY_THRESHOLD = 0.01;
     constexpr int RELATIVE_FREQUENCY_THRESHHOLD = 100000;
 
-    constexpr double BITS_FOR_SAVED_FREQUENCIES = 16;
-    constexpr double BITS_FOR_WL = 16;
+    constexpr size_t BITS_FOR_SAVED_FREQUENCIES = 16;
+    constexpr size_t BITS_FOR_WL = 16;
     
+    constexpr size_t BETA_STAR_BITS_SIZE = 4;
+    constexpr size_t MEANINGFUL_BITS_SIZE_ELF = 6; //ceil(log2(52)) since max is 52
 }
 
 #endif // GLOBAL_PARAMS_H

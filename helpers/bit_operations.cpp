@@ -122,3 +122,9 @@ std::bitset<64> bitvector_to_bitset64(const std::vector<bool>& bitvec) {
     
     return result;
 }
+
+void print_bitvector(const std::vector<bool>& bits) {
+    for (bool bit : bits) {
+        std::cout << (bit ? '1' : '0');
+    }
+}

@@ -17,5 +17,6 @@ std::vector<bool> bitset_to_bitvector(const std::bitset<64>& bits, int start, in
 uint16_t bitvector_to_uint16(const std::vector<bool>& bitvec);
 double bitvector_to_double(const std::vector<bool>& bitvec);
 std::bitset<64> bitvector_to_bitset64(const std::vector<bool>& bitvec);
+void print_bitvector(const std::vector<bool>&);
 
 #endif // BIT_OPERATIONS_H

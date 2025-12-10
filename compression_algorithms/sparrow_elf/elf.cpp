@@ -48,8 +48,10 @@ int calculateErasurePosition(double v, int decimal_places) {
     int f_alpha = ceil(decimal_places * log2(10));
     int g_alpha = f_alpha + e - 1023;
     
-    return g_alpha;
+    return g_alpha + 11;
 }
+
+
 
 
 double LeaveOut(double v_prime, int alpha) {
@@ -89,9 +91,9 @@ vector<bool> elfEraseResidual(const vector<bool>& residual_bits,
     uint64_t delta = residual_uint & mantissa_mask;
 
     if (beta_star < 16 && delta != 0 && bits_to_erase > 4) {
-        int erase_start = 64 - bits_to_erase;
+        int erase_start = 12 + erasure_position;
         for (int j = erase_start; j < 64; j++) {
-            result[64-j] = 0;
+            result[j] = 0;
         }
     }
 
