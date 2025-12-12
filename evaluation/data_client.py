@@ -1,3 +1,4 @@
+from math import floor
 import requests
 from datetime import datetime, timedelta
 import pandas as pd
@@ -12,7 +13,7 @@ def sinusoid(duration, fs, noise_factor)->np.array:
     t = np.linspace(0, duration, samples)
     noise = generate_white_noise(len(t), noise_factor)
     x = 1000 * np.sin(2 * np.pi * t * 8 -19) + 10000*np.sin(2 * np.pi * t*2) + 4000*np.cos(2*np.pi * 5 * t) + noise + 2367
-    return x
+    return [floor(v*100)/100 for v in x]
 
 
 def NOAA_tidal_data(start_date, end_date, interval='6')->np.array:

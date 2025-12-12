@@ -18,6 +18,8 @@
 
 using namespace std;
 
+
+
 double string_to_double(const std::string& str) {
     std::string cleaned;
     for (char c : str) {
@@ -67,9 +69,9 @@ vector<double> vector_string_to_double(const vector<string>& string_vector) {
 
 
 std::vector<bool> erasure_pos_to_bitvector(int erasure_pos) {
-    if(erasure_pos < 0 || erasure_pos > 52) {
+    /*if(erasure_pos < 0 || erasure_pos > 52 + 11) {
         throw std::invalid_argument("erasure_pos must be between 0 and 52");
-    }
+    }*/
     
     std::vector<bool> result;
     result.reserve(6);
@@ -86,7 +88,7 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
     cout << endl << "---------- SPARROW ELF ENCODE ----------" << endl;
 
     FileStringReader reader = {input_filepath};
-    vector<string> xs_strings = reader.read();
+    const vector<string> xs_strings = reader.read();
     vector<double> xs = vector_string_to_double(xs_strings);
 
     size_t N = xs_strings.size();
@@ -188,7 +190,7 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
 
     // === ENCODING ===
     vector<bool> output;
-    
+
     // 1. Frequency count (16 bits)
     std::vector<bool> freq_count = int16_to_bitvector(frequencies.size());
     output.insert(output.end(), freq_count.begin(), freq_count.end());
@@ -206,53 +208,36 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
         output.insert(output.end(), phase_bit.begin(), phase_bit.end());
     }
 
-    // 3. Window length (16 bits) - MUST BE HERE, BEFORE RESIDUALS
+    // 3. Window length (16 bits)
     vector<bool> best_wl_bits = int16_to_bitvector(best_wl);
     output.insert(output.end(), best_wl_bits.begin(), best_wl_bits.end());
 
     // 4. ELF + Sparrow encoded residuals
     for (int i = 0; i < r_bit.size(); i++) {
-        cout <<endl<< "-----------" << endl;
+        cout <<endl<< "-----------" << endl << "idx0:"<<i<<"."<<endl;
         auto ri = r_bit[i];
         
         // Apply ELF erasure to XOR residual
         //vector<bool> ri_bitvec(64);
+        auto xs_bitset = xs_bit[i];
         int last_1_in_mantissa = -1;
         for(int j = 12; j < 64; j++) {
-            bool is_1 = ri[63-j];
+            bool is_1 = xs_bitset[63-j];
             if(is_1){
                 last_1_in_mantissa = j;
             }
         }
-        //vector<bool> ri_erased = elfEraseResidual(ri_bitvec, alphas[i], beta_stars[i], erasure_positions[i]);
-        cout << endl << ri <<  endl<< "Number: "<< xs[i] << endl << "Alpha: "<< alphas[i] << endl << "Beta: " << beta_stars[i] << endl << "Erasure Pos: " << erasure_positions[i] <<endl << "Last 1: " << last_1_in_mantissa << endl;
-        
-        
-        // Convert back to bitset for Sparrow
-        /*
-        bitset<64> ri_erased_bitset;
-        for(int j = 0; j < 64; j++) {
-            ri_erased_bitset[j] = ri_erased[64-j];
-        }
-            */
+        cout << endl << "Approximation: " << x_bit[i] << endl << "Actual Value: " << xs_bit[i] << endl << "XOR: " << ri[i]<< endl;        
+        cout << endl<< "Number: "<< xs_strings[i] << endl << "Alpha: "<< alphas[i] << endl << "Beta: " << beta_stars[i] << endl << "Erasure Pos: " << erasure_positions[i] <<endl << "Last 1: " << last_1_in_mantissa << endl;
         
         // Calculate ELF metadata
         int bits_to_erase = 52 - erasure_positions[i];
-        bool has_erasable_bits = last_1_in_mantissa >= erasure_positions[i];
+
+        bool has_erasable_bits = last_1_in_mantissa > erasure_positions[i];
         bool elf_worth = (beta_stars[i] < 16 && bits_to_erase > 4);
 
         bool elf_applied = has_erasable_bits && elf_worth;
         
-        /*
-        uint64_t temp_uint = ri_erased_bitset.to_ullong();
-        uint64_t mask = (1ULL << bits_to_erase) - 1;
-        uint64_t delta = temp_uint & mask;
-        
-        if (delta == 0) {
-            cout << "delta 0";
-            elf_applied = false;  // Don't apply if no bits would be erased
-        }
-        */
         // Sparrow encoding on ELF-erased residual
         bool sparrow_control_bit;
         vector<bool> sparrow_prefix;
@@ -269,11 +254,6 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
             significand = get_significant_bits(ri, leading_zeros);
         }
 
-        //cout << "Ri erased: "<< (ri)  << endl;
-        
-        // Write metadata in proper order:
-        // [ELF flag][beta_star if flag=1][Sparrow control][Sparrow prefix if control=0][significand]
-        
         cout << endl;
         // ELF metadata (per value)
         output.push_back(elf_applied);
@@ -296,13 +276,26 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
             output.insert(output.end(), sparrow_prefix.begin(), sparrow_prefix.end());
         }
 
+        int last_1_in_residual = -1;
+        for(int j = 63; j >= 0; j--) {
+            if(ri[j]) {
+                last_1_in_residual = 63 - j;  // Position from MSB
+                break;
+            }
+        }
+
         int leading_offset = sparrow_control_bit ? best_wl : leading_zeros;
         if(leading_offset > erasure_positions[i]) cout << endl<< "ERROR: Leading offset is larger than erasure position" << endl;
-        size_t meaningful_index = erasure_positions[i] - leading_offset;
-        if(!xs[i]) meaningful_index = 0;
-        vector<bool> meaningful_bitset = erasure_pos_to_bitvector(meaningful_index);
-        cout << " eep "; print_bitvector(meaningful_bitset);
+        
+        size_t meaningful_index = min(erasure_positions[i],52+11-leading_offset+1);
+        meaningful_index = elf_applied ? meaningful_index : 64;
 
+        cout << endl << "d size: " << meaningful_index << endl;
+        if(!xs[i]) meaningful_index = 0;
+        vector<bool> meaningful_bitset_length = erasure_pos_to_bitvector(meaningful_index);
+        cout << " eep "; print_bitvector(meaningful_bitset_length);
+
+        output.insert(output.end(), meaningful_bitset_length.begin(), meaningful_bitset_length.end());
         
         // Significand data
         int kept_bits = 52 - bits_to_erase;
@@ -310,9 +303,10 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
             significand.begin(),
             significand.begin() + meaningful_index
         );
+        
         output.insert(output.end(),
-                    kept_significand.begin(),
-                    kept_significand.end() );
+                kept_significand.begin(),
+                kept_significand.end() );
 
         cout << " d "; 
         print_bitvector(kept_significand);
@@ -324,6 +318,9 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
     cout << endl << "Encoded: " << compression_size << endl 
          << "Original: " << 64 * N << endl 
          << "Ratio: " << (double)compression_size/(64*N) << endl;
+
+
+    cout << endl << endl;
 
     return output;
 }

@@ -77,7 +77,7 @@ int main(int argc, char* argv[]){
 
     long long encode_time_ms = 0;
     long long decode_time_ms = 0;
-    int error = 0;
+    double error = 0;
     bool success = false;
 
     try {

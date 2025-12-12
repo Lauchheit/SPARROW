@@ -1,6 +1,7 @@
 import os
 import subprocess
 from datetime import datetime
+import data_client
 
 # Paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,16 +16,15 @@ exe_path = os.path.join(script_dir, "..", "compare.exe")
 os.makedirs(data_dir, exist_ok=True)
 os.makedirs(logs_dir, exist_ok=True)
 
-# Create dataset: 100 zeros
-data = [1.2134, 0.75,1.1123, 5.2]
+data = data_client.sinusoid(10000, 1, 1)
 
-print((data))
+#data = [6217.952742246921844, 7773.410565557320297, 8845.397666189204756, 9378.329621421606134,]
 
 
 # Write signal data
 with open(signal_path, "w") as f:
     for v in data:
-        f.write(f"{v}\n")
+        f.write(f"{v:.15f}\n")
 
 # Run Sparrow-ELF (algo id = 6)
 with open(log_path, "w") as log:
