@@ -17,8 +17,25 @@ using namespace std;
 
 double elf_reconstruct(double v_prime, int alpha) {
     // Formula from the paper: v = LeaveOut(v', α) + 10^(-α)
-    return LeaveOut(v_prime, alpha) + std::pow(10, -alpha);
+    return LeaveOut(v_prime, alpha) + std::pow(10, -alpha) * (v_prime < 0 ? -1 : 1);
 }
+
+double elf_reconstruct_roundup_exact(double v_prime, int alpha) {
+    int64_t scale = 1;
+    for (int i = 0; i < alpha; i++) scale *= 10;
+
+    double scaled = v_prime * scale;
+
+    int64_t rounded;
+    if (v_prime >= 0.0) {
+        rounded = (int64_t)std::ceil(scaled - 1e-12);
+    } else {
+        rounded = (int64_t)std::floor(scaled + 1e-12);
+    }
+
+    return (double)rounded / scale;
+}
+
 
 int bitvector_to_erasure_pos(const std::vector<bool>& bitvec) {
     if(bitvec.size() != 6) {
@@ -133,6 +150,11 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
     uint16_t best_wl = bitvector_to_uint16(wl_bits);
     cout << "Window length (w_l): " << best_wl << endl;
 
+    vector<bool> n_bits(bits.begin() + pos, bits.begin() + pos + GlobalParams::BITS_FOR_N_DATA_POINTS);
+    pos += GlobalParams::BITS_FOR_N_DATA_POINTS;
+    uint64_t N = bitvector_to_uint64(n_bits);
+    cout << "Number of samples (N): " << N << endl;
+
     int prefix_length = ceil(log2(max(1, (int)best_wl)));
     cout << "Prefix length: " << prefix_length << endl;
 
@@ -140,20 +162,41 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
 
     cout << "Bits size: " << bits.size() << endl;
 
+    cout << "-----------------------------------\nFirst bits of data section: ";
+    for(int k = 0; k < 20; k++) {
+        cout << bits[pos + k];
+    }
+    cout << endl;
+
     
     vector<bool> elf_control_bits;
     vector<int> leading_zeros_list;
     vector<int> significand_length_list;
+    vector<bool> is_zero_flags;
     vector<uint8_t> beta_stars;
+
     // Read data values until EOF
     size_t idx = 0;
-    while(pos < bits.size()) {
-        cout << endl << "idx1:" << idx++ << "." << endl;
+    for(uint64_t idx = 0; idx < N; idx++) {
+        cout << endl << "idx1:" << idx << "." << endl;
 
         cout << endl << "Bits remaining: " << bits.size()-pos << endl;
 
-        if(pos + 8 > bits.size()) {
+        if(pos + 8 >= bits.size()) {
             break;  // No more samples
+        }
+        
+        bool is_zero = !bits[pos];
+        cout << " zc " << is_zero << endl;
+        pos +=1;
+        is_zero_flags.push_back(is_zero);
+        if(is_zero){
+            elf_control_bits.push_back(0);
+            leading_zeros_list.push_back(0);
+            significand_length_list.push_back(0);
+            beta_stars.push_back(0);
+            reconstructed_residuals_bitset.push_back(bitset<64>(0)); 
+            continue;
         }
 
         bool elf_control_bit = bits[pos];
@@ -231,6 +274,9 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             vector<bool> erasure_pos_bits(bits.begin() + pos, bits.begin() + pos + 6);
             pos += 6;
             significand_length = bitvector_to_erasure_pos(erasure_pos_bits);
+
+            cout << " eep "; print_bitvector(erasure_pos_bits);
+
             
             // Read significand
             vector<bool> significand_bits(bits.begin() + pos, bits.begin() + pos + significand_length);
@@ -249,9 +295,6 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
         reconstructed_residuals_bitset.push_back(decoded_residual);
 
     }
-
-    // Only now do we know N and can start with constructing the approximate signal
-    int N = reconstructed_residuals_bitset.size();
 
     cout << endl << "Decoded " << N << " residuals" << endl;
     cout << "Final position: " << pos << " / " << bits.size() << " bits" << endl;
@@ -274,10 +317,16 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
     //Convert approximate signal to bits to perform XOR
     vector<bitset<64>> x_approx_bits = vector_double_to_bits(approximated_signal);
 
-    vector<double> xs_reconstructed;
     vector<bitset<64>> elf_erased_bits;
+    vector<double> xs_reconstructed;
+
     for(int i = 0; i < N; i++) {
         cout << endl << "idx2:" << i << "." << endl;
+
+        if(is_zero_flags[i]) {
+            xs_reconstructed.push_back(0); 
+            continue;
+        }
         // Perform XOR to get the original value back
         bitset<64> v_prime_bits = x_approx_bits[i] ^ reconstructed_residuals_bitset[i];
         elf_erased_bits.push_back(v_prime_bits);
@@ -293,11 +342,15 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             cout << "v' before: " << v_prime_bits << endl;
 
             size_t erasure_position = leading_zeros_list[i] + significand_length_list[i];
+            cout << "Erasing form position " << erasure_position << endl;
             for(int j = erasure_position; j < 64; j++) {
                 v_prime_bits[63-j] = 0;
             }
 
-            cout << "v' after: " << v_prime_bits << endl;
+
+            v_prime = bitset_to_double(v_prime_bits);
+            
+            cout << "v' after: " << v_prime_bits << endl << "As double: " << v_prime << endl;
 
             uint8_t beta_star = beta_stars[i];
             cout << "b*: " << (int)beta_star << endl;
@@ -305,7 +358,7 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             cout << "SP(v): " << (int)significand_position << endl;
             uint16_t alpha = calculate_alpha(beta_star, significand_position);
             cout << "alpha: " << (int)alpha << endl;
-            v_original = elf_reconstruct(v_prime, alpha);
+            v_original = elf_reconstruct_roundup_exact(v_prime, alpha);
         }
         else{
             if(beta_stars[i]) cout << "ERROR: Beta Star is not 0 even though elf control bit is";
@@ -314,6 +367,8 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
         if(v_original != check[i]) {
             cout << "ERROR: Mismatching values: " << endl << "Original: " << check[i] << endl << "Reconstruction: " << v_original << endl;
             cout << "Reconstructed Residual: " << reconstructed_residuals_bitset[i] << endl << "Approximation: " << x_approx_bits[i] << endl << "v' (XOR): " << v_prime_bits << endl;
+            cout << endl << "Reconstruction: "; print_bitvector(double_to_bitvector(v_original)); cout << endl;
+            cout <<         "         Check: "; print_bitvector(double_to_bitvector(check[i])); cout << endl;
         }
         xs_reconstructed.push_back(v_original);
 

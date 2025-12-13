@@ -128,3 +128,31 @@ void print_bitvector(const std::vector<bool>& bits) {
         std::cout << (bit ? '1' : '0');
     }
 }
+
+std::vector<bool> uint64_to_bitvector(uint64_t value) {
+    std::vector<bool> result;
+    result.reserve(64);
+    
+    for(int i = 63; i >= 0; i--) {
+        result.push_back((value >> i) & 1);
+    }
+    
+    return result;
+}
+
+uint64_t bitvector_to_uint64(const std::vector<bool>& bitvec) {
+    if(bitvec.size() != 64) {
+        throw std::invalid_argument("bitvector must have exactly 64 bits for uint64");
+    }
+    
+    uint64_t result = 0;
+    
+    for(int i = 0; i < 64; i++) {
+        result <<= 1;
+        if(bitvec[i]) {
+            result |= 1;
+        }
+    }
+    
+    return result;
+}

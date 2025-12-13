@@ -93,7 +93,7 @@ int calculateErasurePosition(double v, int decimal_places) {
 
 double LeaveOut(double v_prime, int alpha) {
     double factor = std::pow(10, alpha);
-    return std::floor(v_prime * factor) / factor;
+    return std::trunc(v_prime * factor) / factor;
 }
 
 struct EncodedValue {
