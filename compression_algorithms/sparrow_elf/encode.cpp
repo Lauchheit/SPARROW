@@ -233,20 +233,20 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
 
     // 4. ELF + Sparrow encoded residuals
     for (int i = 0; i < r_bit.size(); i++) {
-        cout <<endl<< "-----------" << endl << "idx0:"<<i<<"."<<endl;
+        //cout <<endl<< "-----------" << endl << "idx0:"<<i<<"."<<endl;
         auto ri = r_bit[i];
 
-        cout << endl<< "Number: "<< xs_strings[i] << endl << "Alpha: "<< alphas[i] << endl << "Beta: " << beta_stars[i] << endl << "Erasure Pos: " << erasure_positions[i] <<endl;
+        //cout << endl<< "Number: "<< xs_strings[i] << endl << "Alpha: "<< alphas[i] << endl << "Beta: " << beta_stars[i] << endl << "Erasure Pos: " << erasure_positions[i] <<endl;
        
 
         //zero control bit 
         if(xs[i] == 0.0){
             output.push_back(0);
-            cout << " zc 0" << endl;
+            //cout << " zc 0" << endl;
             continue;
         }
         output.push_back(1);
-        cout << " zc 1";
+        //cout << " zc 1";
 
         
         // Apply ELF erasure to XOR residual
@@ -259,8 +259,8 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
                 last_1_in_mantissa = j;
             }
         }
-        cout << endl << "Last 1: " << last_1_in_mantissa << endl;
-        cout << endl << "Approximation: " << x_bit[i] << endl << "Actual Value: " << xs_bit[i] << endl << "XOR: " << r_bit[i]<< endl;        
+        //cout << endl << "Last 1: " << last_1_in_mantissa << endl;
+        //cout << endl << "Approximation: " << x_bit[i] << endl << "Actual Value: " << xs_bit[i] << endl << "XOR: " << r_bit[i]<< endl;        
         
         
         // Calculate ELF metadata
@@ -287,29 +287,29 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
             significand = get_significant_bits(ri, leading_zeros);
         }
 
-        cout << endl;
+        //cout << endl;
         // ELF metadata (per value)
         output.push_back(elf_applied);
-        cout << endl << "ec " << elf_applied << " " << " eb* ";
+        //cout << endl << "ec " << elf_applied << " " << " eb* ";
         if (elf_applied) {
             for(int b = 3; b >= 0; b--) {
                 output.push_back((beta_stars[i] >> b) & 1);
-                cout << ((beta_stars[i] >> b) & 1);
+                //cout << ((beta_stars[i] >> b) & 1);
             }
         }
 
         
         // Sparrow metadata (per value)
         output.push_back(sparrow_control_bit);
-        cout << " sc " << sparrow_control_bit;
-        cout << " sp ";
+        //cout << " sc " << sparrow_control_bit;
+        //cout << " sp ";
         if (!sparrow_control_bit) {
             print_bitvector(sparrow_prefix);
 
             output.insert(output.end(), sparrow_prefix.begin(), sparrow_prefix.end());
         }
 
-        cout << endl << "Significand before removing trailing 0s: " << endl; print_bitvector(significand); cout << endl;
+        //cout << endl << "Significand before removing trailing 0s: " << endl; print_bitvector(significand); cout << endl;
 
         int last_1_in_residual = -1;
         for(int j = significand.size()-1; j >= 0; j--) {
@@ -319,7 +319,7 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
             }
         }
 
-        cout << "Last 1 in res: " << last_1_in_residual << endl;
+        //cout << "Last 1 in res: " << last_1_in_residual << endl;
 
         // Calculate data length based on whether ELF is applied
         int data_length;
@@ -345,10 +345,10 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
             }
         }
 
-        cout << endl << "d size: " << data_length << endl;
+        //cout << endl << "d size: " << data_length << endl;
         
         vector<bool> meaningful_bitset_length = erasure_pos_to_bitvector(data_length);
-        cout << " eep "; print_bitvector(meaningful_bitset_length);
+        //cout << " eep "; print_bitvector(meaningful_bitset_length);
 
         output.insert(output.end(), meaningful_bitset_length.begin(), meaningful_bitset_length.end());
         
@@ -360,19 +360,14 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
         
         output.insert(output.end(), kept_significand.begin(), kept_significand.end() );
 
-        cout << " d "; 
+        //cout << " d "; 
         print_bitvector(kept_significand);
-        cout << endl << "Leading 0s: " << leading_zeros << endl;
+        //cout << endl << "Leading 0s: " << leading_zeros << endl;
     }
     
     int compression_size = output.size();
 
-    cout << endl << "Encoded: " << compression_size << endl 
-         << "Original: " << 64 * N << endl 
-         << "Ratio: " << (double)compression_size/(64*N) << endl;
-
-
-    cout << endl << endl;
+    //cout << endl << "Encoded: " << compression_size << endl << "Original: " << 64 * N << endl << "Ratio: " << (double)compression_size/(64*N) << endl;
 
     return output;
 }

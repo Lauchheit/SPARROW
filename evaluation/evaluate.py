@@ -22,8 +22,10 @@ def get_datasets():
     """Retrieve all test datasets."""
     return {
         'Tidal': data_client.NOAA_tidal_data('20231031', '20231231', interval='6'),
-        'Solar': data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation'),
-        'Sinusoid': data_client.sinusoid(10000, 1, 1)
+        'Solar 1': data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation'),
+        'Solar 2': data_client.nasa_power_solar_irradiance(52.52, 13.41, '2023-01-01', '2023-12-31', 'hourly'),
+        'Sinusoid': data_client.sinusoid(10000, 1, 1),
+        'Sinusoid Rounded': data_client.sinusoid(10000, 1, 1, 2)
     }
 
 

@@ -17,15 +17,15 @@ os.makedirs(data_dir, exist_ok=True)
 os.makedirs(logs_dir, exist_ok=True)
 
 #data = data_client.sinusoid(10000, 1, 1)
-#data = data_client.NOAA_tidal_data('20231031', '20231231', interval='6')
+data = data_client.NOAA_tidal_data('20231031', '20231231', interval='6')
 #data = [6217.952742246921844, 0.000, 7773.410565557320297, 8845.397666189204756, 9378.329621421606134]
-data = data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation')
+#data = data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation')
         
 
 # Write signal data
 with open(signal_path, "w") as f:
     for v in data:
-        f.write(f"{v:.15f}\n")
+        f.write(f"{v:.2f}\n")
 
 # Run Sparrow-ELF (algo id = 6)
 with open(log_path, "w") as log:
