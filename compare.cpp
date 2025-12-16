@@ -75,10 +75,11 @@ int main(int argc, char* argv[]){
             return 1;
     }
 
-    string input_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\signal_data.txt";
-    string code_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\code.txt";
-    string decode_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\decode.txt";
-    string timing_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\timing.json";
+    // Use relative paths - works from any directory
+    string input_filepath = "data/signal_data.txt";
+    string code_filepath = "data/code.txt";
+    string decode_filepath = "data/decode.txt";
+    string timing_filepath = "data/timing.json";
 
     long long encode_time_ms = 0;
     long long decode_time_ms = 0;
