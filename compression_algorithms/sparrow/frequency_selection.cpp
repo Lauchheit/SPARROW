@@ -77,7 +77,7 @@ std::vector<FrequencyComponent> selectOptimalFrequencies(
     // Start with the original signal as the residual
     std::vector<double> residual = signal;
     
-    // Calculate initial average absolute error
+    // Calculate initial average absolute value
     double epsilon = 0;
     for(const auto& r : residual) {
         epsilon += std::abs(r);
@@ -93,7 +93,9 @@ std::vector<FrequencyComponent> selectOptimalFrequencies(
         if(Ai < max_amplitude/GlobalParams::RELATIVE_FREQUENCY_THRESHHOLD) break;
         if(selected_frequencies.size() >= pow(2,GlobalParams::BITS_FOR_SAVED_FREQUENCIES)-1) break;
         
-        // Reconstruct this single frequency component
+        // Reconstruct this single frequency component to see its effect on the remaining signal later
+        // This whole process can be approximated by N*log2(epsilon/(epsilon - 2*A/pi) ). 
+        // This approximation proved to be increasingly poor for signals with disturbance, so this more stable but runtime costly approach was chosen
         std::vector<double> freq_component(N, 0.0);
         for(int i = 0; i < N; i++) {
             double t = i / sampleRate;
@@ -106,7 +108,7 @@ std::vector<FrequencyComponent> selectOptimalFrequencies(
             epsilon_new += std::abs(residual[i] - freq_component[i]);
         }
         epsilon_new /= N;
-        
+         
         // Calculate benefit
         double delta_LZ = std::log2(epsilon / epsilon_new);
         double benefit = N * delta_LZ;
