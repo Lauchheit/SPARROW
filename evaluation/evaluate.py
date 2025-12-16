@@ -11,7 +11,7 @@ import pandas as pd
 script_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(script_dir, "..", "data")
 signal_path = os.path.join(data_dir, "signal_data.txt")
-code_path = os.path.join(data_dir, "code.txt")
+code_path = os.path.join(data_dir, "code.bin")
 exe_path = os.path.join(script_dir, "..", "compare.exe")
 logs_dir = os.path.join(script_dir, "", "logs")
 

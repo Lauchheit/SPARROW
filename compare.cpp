@@ -77,7 +77,7 @@ int main(int argc, char* argv[]){
 
     // Use relative paths - works from any directory
     string input_filepath = "data/signal_data.txt";
-    string code_filepath = "data/code.txt";
+    string code_filepath = "data/code.bin";
     string decode_filepath = "data/decode.txt";
     string timing_filepath = "data/timing.json";
 
