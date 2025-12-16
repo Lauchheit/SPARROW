@@ -9,12 +9,14 @@ import pandas as pd
 
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-signal_path = os.path.join(script_dir, "..", "data", "signal_data.txt")
-code_path = os.path.join(script_dir, "..", "data", "code.txt")
+data_dir = os.path.join(script_dir, "..", "data")
+signal_path = os.path.join(data_dir, "signal_data.txt")
+code_path = os.path.join(data_dir, "code.txt")
 exe_path = os.path.join(script_dir, "..", "compare.exe")
 logs_dir = os.path.join(script_dir, "", "logs")
 
 # Create logs directory if it doesn't exist
+os.makedirs(data_dir, exist_ok=True)
 os.makedirs(logs_dir, exist_ok=True)
 
 

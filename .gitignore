@@ -1,4 +1,5 @@
 *.exe
+!compare.exe
 
 data/
 data/*

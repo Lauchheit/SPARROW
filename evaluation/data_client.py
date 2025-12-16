@@ -4,10 +4,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 
-import pyedflib
-import urllib.request
-import os
-
 def sinusoid(duration, fs, noise_factor, rounding_factor = 15)->np.array:
     def generate_white_noise(len, s):
         return np.random.normal(loc=0, scale=s, size=len)
