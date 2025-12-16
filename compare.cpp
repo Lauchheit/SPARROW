@@ -23,6 +23,7 @@
 #include "compression_algorithms/lz4/lz4_compression.h"
 #include "compression_algorithms/zstd/zstd_compression.h"
 #include "compression_algorithms/sparrow_elf/sparrowelf_compression.h"
+#include "compression_algorithms/gorilla_elf/gorillaelf_compression.h"
 
 using namespace std;
 
@@ -64,6 +65,10 @@ int main(int argc, char* argv[]){
         case 6:
             algorithm = new SparrowElfCompression();
             algo_name = "Sparrow Elf";
+            break;
+        case 7:
+            algorithm = new GorillaElfCompression();
+            algo_name = "Gorilla Elf";
             break;
         default:
             cerr << "Algorithm indicator " << algo_type << " does not exist." << endl;

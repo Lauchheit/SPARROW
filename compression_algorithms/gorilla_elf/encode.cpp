@@ -1,4 +1,4 @@
-#include "gorilla.h"
+#include "gorillaelf_compression.h"
 
 #include <iostream>
 #include <vector>
@@ -7,117 +7,27 @@
 #include <cmath>
 
 #include "../../helpers/bit_operations.h"
-#include "../../helpers/file_operations.h"
-#include "../../input_strategies/source_context.h"
-#include "gorilla_helpers.h"
+#include "../../input_strategies/file_string_reader.h"
+#include "../elf_operations.h"
+#include "../gorilla/gorilla_helpers.h"
 
 using namespace std;
 
-// Helper function to get leading zeros in a bitset
-int get_leading_zeros_gorilla(bitset<64> bits) {
-    unsigned long long val = bits.to_ullong();
-    if(val == 0) return 64;
-    return __builtin_clzll(val);
+
+void erase_bitset(bitset<64>& xor_val, const int erasure_pos){
+    for(int i = 0; i<64; i++){
+        if(i>erasure_pos) {
+            xor_val[63-i] = 0;
+        }
+    }
 }
 
-// Helper function to get trailing zeros in a bitset
-int get_trailing_zeros_gorilla(bitset<64> bits) {
-    unsigned long long val = bits.to_ullong();
-    if(val == 0) return 64;
-    return __builtin_ctzll(val);
-}
-
-
-MeaningfulWindow get_meaningful_window(bitset<64> xor_val) {
-    MeaningfulWindow window;
-    window.leading_zeros = get_leading_zeros_gorilla(xor_val);
-    window.trailing_zeros = get_trailing_zeros_gorilla(xor_val);
-    
-    if(window.leading_zeros == 64) {
-        window.meaningful_bits = 0;
-    } else {
-        window.meaningful_bits = 64 - window.leading_zeros - window.trailing_zeros;
-    }
-    
-    return window;
-}
-
-// Check if window_new fits within window_prev
-bool window_fits_in_previous(const MeaningfulWindow& window_new, const MeaningfulWindow& window_prev) {
-    return (window_new.leading_zeros >= window_prev.leading_zeros) && 
-           (window_new.trailing_zeros >= window_prev.trailing_zeros);
-}
-
-// Extract meaningful bits from a bitset given a window
-vector<bool> extract_meaningful_bits(bitset<64> bits, const MeaningfulWindow& window) {
-    vector<bool> result;
-    
-    if(window.meaningful_bits == 0) {
-        return result; // Empty vector for all-zero case
-    }
-    
-    // Extract bits from position [leading_zeros] to [64 - trailing_zeros - 1]
-    for(int i = 63 - window.leading_zeros; i >= window.trailing_zeros; i--) {
-        result.push_back(bits[i]);
-    }
-    
-    return result;
-}
-
-// Encode window information: 5 bits for leading zeros, 6 bits for meaningful length
-vector<bool> encode_window_info(const MeaningfulWindow& window) {
-    vector<bool> result;
-
-    // Validate window
-    int sum = window.leading_zeros + window.meaningful_bits + window.trailing_zeros;
-    if(sum != 64) {
-        cerr << "FATAL: Invalid window! lz=" << window.leading_zeros 
-             << " mb=" << window.meaningful_bits 
-             << " tz=" << window.trailing_zeros 
-             << " sum=" << sum << " (expected 64)" << endl;
-    }
-    
-    int lz = window.leading_zeros;
-    int mb = window.meaningful_bits;
-    
-    // Check if leading_zeros exceeds 5-bit capacity
-    if(lz > 31) {
-        cerr << "WARNING: leading_zeros=" << lz << " > 31, clamping to 31" << endl;
-        lz = 31;
-    }
-    
-    if(mb > 0) {
-        mb = mb - 1;
-    }
-    
-    if(mb > 63) {
-        cerr << "ERROR: meaningful_bits-1=" << mb << " > 63 after adjustment!" << endl;
-        mb = 63;
-    }
-    
-    cout << "  Encoding window: lz=" << window.leading_zeros 
-         << " mb=" << window.meaningful_bits 
-         << " (stored as " << mb << ")"
-         << " tz=" << window.trailing_zeros << endl;
-    
-    // Encode leading zeros (5 bits)
-    for(int i = 4; i >= 0; i--) {
-        result.push_back((lz >> i) & 1);
-    }
-    
-    // Encode meaningful bits length (6 bits, storing mb-1)
-    for(int i = 5; i >= 0; i--) {
-        result.push_back((mb >> i) & 1);
-    }
-    
-    return result;
-}
-
-std::vector<bool> GorillaCompression::encode(const std::string& input_filepath) {
+std::vector<bool> GorillaElfCompression::encode(const std::string& input_filepath) {
     cout << endl << "---------- GORILLA ENCODE ----------" << endl;
     
-    SignalContext context(std::make_unique<FileSignalStrategy>(input_filepath));
-    std::vector<double> values = context.getSignal();
+    FileStringReader reader = {input_filepath};
+    const vector<string> values_strings = reader.read();
+    vector<double> values = vector_string_to_double(values_strings);
     size_t N = values.size();
     
     if(N == 0) {
@@ -133,9 +43,39 @@ std::vector<bool> GorillaCompression::encode(const std::string& input_filepath) 
         output.push_back((N >> i) & 1);
     }
     
-    // Encode first value (64 bits)
-    vector<bool> first_value_bits = double_to_bitvector(values[0]);
-    output.insert(output.end(), first_value_bits.begin(), first_value_bits.end());
+
+    // First value
+    double first_value = values[0];
+    string first_value_string = values_strings[0];
+    int alpha_0 = getDecimalPlaces(first_value_string);
+    uint8_t beta_0 = getSignificandCount(first_value_string);
+    int erasure_pos_0 = calculateErasurePosition(first_value, alpha_0);
+
+    bitset<64> first_bits = double_to_bits(first_value);
+
+    if(set_beta_star_0(first_value, beta_0)){
+        beta_0=0;
+    }
+
+    bool elf_applied_first = should_erase(first_bits, erasure_pos_0, beta_0);
+
+    
+
+    output.push_back(elf_applied_first);
+    if (elf_applied_first) {
+        erase_bitset(first_bits, erasure_pos_0);
+        // Store beta_0
+        for(int b = 3; b >= 0; b--) {
+            output.push_back((beta_0 >> b) & 1);
+        }
+    }
+
+    vector<bool> first_value_bitvector = bitset_to_bitvector(first_bits, 0, 64);
+    output.insert(output.end(), first_value_bitvector.begin(), first_value_bitvector.end());
+
+    
+    bitset<64> prev_bits_erased = first_bits;
+
     
     cout << "Encoded header: N=" << N << " first_value=" << values[0] << endl;
     
@@ -153,9 +93,35 @@ std::vector<bool> GorillaCompression::encode(const std::string& input_filepath) 
     
     // Process remaining values
     for(size_t i = 1; i < N; i++) {
-        bitset<64> prev_bits = double_to_bits(values[i-1]);
-        bitset<64> curr_bits = double_to_bits(values[i]);
-        bitset<64> xor_val = prev_bits ^ curr_bits;
+        double curr_double = values[i];
+        bitset<64> curr_bits = double_to_bits(curr_double);
+
+        string curr_string = values_strings[i];
+        int alpha = getDecimalPlaces(curr_string);
+        uint8_t beta = getSignificandCount(curr_string);
+
+        if(set_beta_star_0(curr_double, beta)){
+            beta=0;
+        }
+
+        int erasure_pos = calculateErasurePosition(curr_double, alpha);
+
+
+        bool elf_applied = should_erase(curr_bits, erasure_pos, beta);
+
+        output.push_back(elf_applied);
+
+        if (elf_applied) {
+            erase_bitset(curr_bits, erasure_pos);
+            for(int b = 3; b >= 0; b--) {
+                output.push_back((beta >> b) & 1);
+                //cout << ((beta_stars[i] >> b) & 1);
+            }
+        }
+
+        bitset<64> xor_val = prev_bits_erased  ^ curr_bits;
+        prev_bits_erased = curr_bits;
+
         
         // Case 0: Identical
         if(xor_val.to_ullong() == 0) {
@@ -170,6 +136,7 @@ std::vector<bool> GorillaCompression::encode(const std::string& input_filepath) 
         
         // Not identical - write control bit 1
         output.push_back(1);
+
         
         MeaningfulWindow new_window = get_meaningful_window(xor_val);
         
@@ -210,6 +177,7 @@ std::vector<bool> GorillaCompression::encode(const std::string& input_filepath) 
             
             case_same_window++;
         }
+
     }
     
     int original_bits = 64 * N;

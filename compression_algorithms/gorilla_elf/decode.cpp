@@ -1,4 +1,4 @@
-#include "gorilla.h"
+#include "gorillaelf_compression.h"
 
 #include <iostream>
 #include <vector>
@@ -7,93 +7,20 @@
 
 #include "../../input_strategies/binary_reader.h"
 #include "../../helpers/bit_operations.h"
-#include "gorilla_helpers.h"
+#include "../elf_operations.h"
+#include "../gorilla/gorilla_helpers.h"
 
 using namespace std;
 
-
-
-// Decode window information from bit stream
-DecodeMeaningfulWindow decode_window_info(const vector<bool>& bits, size_t& pos) {
-    // Read 5 bits for leading zeros
-    int leading_zeros = 0;
-    for(int i = 0; i < 5; i++) {
-        leading_zeros <<= 1;
-        if(bits[pos++]) {
-            leading_zeros |= 1;
-        }
-    }
-    
-    // Read 6 bits for meaningful bits length
-    int meaningful_bits = 0;
-    for(int i = 0; i < 6; i++) {
-        meaningful_bits <<= 1;
-        if(bits[pos++]) {
-            meaningful_bits |= 1;
-        }
-    }
-    
-    // CRITICAL FIX: We stored (mb - 1), so add 1 back
-    // This maps 0-63 back to 1-64
-    meaningful_bits = meaningful_bits + 1;
-    
-    cout << "  Decoded window: lz=" << leading_zeros 
-         << " mb=" << meaningful_bits 
-         << " tz=" << (64 - leading_zeros - meaningful_bits) << endl;
-    
-    // Validate the window
-    if(leading_zeros + meaningful_bits > 64) {
-        cerr << "ERROR: Invalid decoded window - lz=" << leading_zeros 
-             << " + mb=" << meaningful_bits << " = " << (leading_zeros + meaningful_bits)
-             << " > 64" << endl;
-        // Attempt recovery
-        meaningful_bits = 64 - leading_zeros;
-    }
-    
-    return DecodeMeaningfulWindow(leading_zeros, meaningful_bits);
-}
-
-// Reconstruct bitset from meaningful bits and window information
-bitset<64> reconstruct_from_meaningful_bits(const vector<bool>& meaningful_bits, 
-                                            const DecodeMeaningfulWindow& window) {
-    bitset<64> result(0);
-    
-    if(meaningful_bits.empty()) {
-        return result;
-    }
-    
-    // Validate sizes match
-    if(meaningful_bits.size() != (size_t)window.meaningful_bits) {
-        cerr << "WARNING: meaningful_bits size mismatch! Expected " 
-             << window.meaningful_bits << " but got " << meaningful_bits.size() << endl;
-    }
-    
-    // Start from the MSB position of the meaningful window
-    // and place bits going downward
-    int bit_position = 63 - window.leading_zeros;
-    
-    for(size_t i = 0; i < meaningful_bits.size(); i++) {
-        if(bit_position < window.trailing_zeros) {
-            cerr << "ERROR: bit_position " << bit_position 
-                 << " below trailing_zeros " << window.trailing_zeros << endl;
-            break;
-        }
-        if(bit_position >= 64 || bit_position < 0) {
-            cerr << "ERROR: bit_position " << bit_position << " out of range [0,63]" << endl;
-            break;
-        }
-        result[bit_position] = meaningful_bits[i];
-        bit_position--;
-    }
-    
-    return result;
-}
-
-std::vector<double> GorillaCompression::decode(const BinaryFileReader& reader) {
+std::vector<double> GorillaElfCompression::decode(const BinaryFileReader& reader) {
     cout << endl << "---------- GORILLA DECODE ----------" << endl;
     
     vector<bool> bits = reader.getSignalCode();
     cout << "Total bits read: " << bits.size() << endl;
+
+    string check_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\signal_data.txt";
+    SignalContext context(std::make_unique<FileSignalStrategy>(check_filepath));
+    std::vector<double> check = context.getSignal();
     
     if(bits.size() < 96) { // 32 for N + 64 for first value
         cerr << "Error: Not enough bits for header and first value" << endl;
@@ -114,10 +41,29 @@ std::vector<double> GorillaCompression::decode(const BinaryFileReader& reader) {
     cout << "Number of values to decode: " << N << endl;
     
     // Read first value (64 bits)
-    vector<bool> first_value_bits(bits.begin() + pos, bits.begin() + pos + 64);
+    bool elf_control_bit_first = bits[pos++];
+    uint8_t beta_star_first = 0;
+    if(elf_control_bit_first) {
+        vector<bool> beta_star_bits(bits.begin() + pos, bits.begin() + pos + GlobalParams::BETA_STAR_BITS_SIZE);
+        pos += 4;
+        beta_star_first = beta_star_bits_to_uint8(beta_star_bits);
+    }
+
+    // Read first value (64 bits) - this is already erased
+    vector<bool> first_value_bits(bits.begin() + pos, bits.begin() + pos + GlobalParams::PRECISION);
     pos += 64;
-    double first_value = bitvector_to_double(first_value_bits);
+    double first_value_prime = bitvector_to_double(first_value_bits);
+
+    // Restore first value
+    double first_value = first_value_prime;  
+    if(elf_control_bit_first) {
+        int8_t sp = calculate_sp(first_value_prime);
+        uint16_t alpha = calculate_alpha(beta_star_first, sp);
+        first_value = elf_reconstruct_roundup_exact(first_value_prime, alpha);
+    }
+
     decoded_values.push_back(first_value);
+    bitset<64> prev_bits = double_to_bits(first_value_prime);
     
     cout << "First value decoded: " << first_value << endl;
     cout << "Starting position after header: " << pos << endl << endl;
@@ -137,14 +83,14 @@ std::vector<double> GorillaCompression::decode(const BinaryFileReader& reader) {
     int case_new_window = 0;
     
     // Decode remaining values
-    bitset<64> prev_bits = double_to_bits(decoded_values.back());
-    
-    while(decoded_values.size() < N && pos < bits.size()) {
-        size_t iteration = decoded_values.size();
+    bitset<64> prev_bits_erased = prev_bits;
+    size_t iter = 1;
+    while(iter < N && pos < bits.size()) {
+        
         
         // Progress output
-        if(iteration < 50 || (iteration % 1000 == 0)) {
-            cout << "--- Iteration " << iteration << " (pos=" << pos << ") ---" << endl;
+        if(iter < 50 || (iter % 1000 == 0)) {
+            cout << "--- Iteration " << iter << " (pos=" << pos << ") ---" << endl;
         }
         
         // Check if we have at least one control bit
@@ -153,19 +99,31 @@ std::vector<double> GorillaCompression::decode(const BinaryFileReader& reader) {
             break;
         }
         
+        bool elf_control_bit = bits[pos++];
+
+        uint8_t beta_star = 0;
+        if(elf_control_bit){
+            vector<bool> beta_star_bits(bits.begin() + pos, bits.begin() + pos + GlobalParams::BETA_STAR_BITS_SIZE);
+            pos += GlobalParams::BETA_STAR_BITS_SIZE;
+            print_bitvector(beta_star_bits);
+
+            beta_star = beta_star_bits_to_uint8(beta_star_bits);
+        }
+
         // Read first control bit
-        bool control_bit_1 = bits[pos++];
+        bool gorilla_control_bit_1 = bits[pos++];
         
-        if(iteration < 50 || (iteration % 1000 == 0)) {
-            cout << "Control bit 1: " << control_bit_1;
+        if(iter < 50 || (iter % 1000 == 0)) {
+            cout << "Control bit 1: " << gorilla_control_bit_1;
         }
         
         bitset<64> xor_val(0);
+
         
         // Case 0: Identical to previous value
-        if(!control_bit_1) {
+        if(!gorilla_control_bit_1) {
             // XOR is all zeros, so current value equals previous value
-            if(iteration < 50 || (iteration % 1000 == 0)) {
+            if(iter < 50 || (iter % 1000 == 0)) {
                 cout << " -> IDENTICAL" << endl;
             }
             xor_val = bitset<64>(0);
@@ -180,13 +138,13 @@ std::vector<double> GorillaCompression::decode(const BinaryFileReader& reader) {
             
             bool control_bit_2 = bits[pos++];
             
-            if(iteration < 50 || (iteration % 1000 == 0)) {
+            if(iter < 50 || (iter % 1000 == 0)) {
                 cout << ", Control bit 2: " << control_bit_2;
             }
             
             // Case A: Use previous window
             if(!control_bit_2) {
-                if(iteration < 50 || (iteration % 1000 == 0)) {
+                if(iter < 50 || (iter % 1000 == 0)) {
                     cout << " -> SAME WINDOW (mb=" << current_window.meaningful_bits << ")" << endl;
                 }
                 
@@ -211,7 +169,7 @@ std::vector<double> GorillaCompression::decode(const BinaryFileReader& reader) {
             }
             // Case B: New window
             else {
-                if(iteration < 50 || case_new_window < 10 || (iteration % 1000 == 0)) {
+                if(iter < 50 || case_new_window < 10 || (iter % 1000 == 0)) {
                     cout << " -> NEW WINDOW" << endl;
                 }
                 
@@ -247,15 +205,34 @@ std::vector<double> GorillaCompression::decode(const BinaryFileReader& reader) {
         }
         
         // XOR with previous value to get current value
-        bitset<64> curr_bits = prev_bits ^ xor_val;
-        double curr_value = bitset_to_double(curr_bits);
-        
-        if(iteration < 20 || (iteration % 1000 == 0)) {
+        bitset<64> curr_bits_erased = prev_bits_erased ^ xor_val;
+
+        double curr_value;
+        if(elf_control_bit){
+            double curr_value_prime = bitset_to_double(curr_bits_erased);
+            int8_t significant_position = calculate_sp(curr_value_prime);
+            uint16_t alpha = calculate_alpha(beta_star, significant_position);
+
+            curr_value = elf_reconstruct_roundup_exact(curr_value_prime, alpha);
+        }
+        else{
+            curr_value = bitset_to_double(curr_bits_erased);
+        }
+
+        if(iter < 20 || (iter % 1000 == 0)) {
             cout << "  Decoded value: " << curr_value << endl;
         }
         
+        prev_bits_erased = curr_bits_erased;
         decoded_values.push_back(curr_value);
-        prev_bits = curr_bits;
+
+        if(curr_value != check[iter]){
+            cout << endl << "Mismatch: " 
+                 << endl << "Reconstruction: " <<  curr_value 
+                 << endl << "      Original: " << check[iter] 
+                 << endl;
+        }
+        iter++;
     }
     
     cout << endl << "==================================" << endl;

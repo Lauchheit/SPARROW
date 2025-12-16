@@ -5,7 +5,7 @@
 #include <bitset>
 #include <cmath>
 
-#include "elf.h"
+#include "../elf_operations.h"
 
 #include "../../global_parameters.h"
 #include "../../input_strategies/binary_reader.h"
@@ -14,100 +14,15 @@
 
 using namespace std;
 
-
-double elf_reconstruct(double v_prime, int alpha) {
-    // Formula from the paper: v = LeaveOut(v', α) + 10^(-α)
-    return LeaveOut(v_prime, alpha) + std::pow(10, -alpha) * (v_prime < 0 ? -1 : 1);
-}
-
-double elf_reconstruct_roundup_exact(double v_prime, int alpha) {
-    int64_t scale = 1;
-    for (int i = 0; i < alpha; i++) scale *= 10;
-
-    double scaled = v_prime * scale;
-
-    int64_t rounded;
-    if (v_prime >= 0.0) {
-        rounded = (int64_t)std::ceil(scaled - 1e-12);
-    } else {
-        rounded = (int64_t)std::floor(scaled + 1e-12);
-    }
-
-    return (double)rounded / scale;
-}
-
-
-int bitvector_to_erasure_pos(const std::vector<bool>& bitvec) {
-    if(bitvec.size() != 6) {
-        throw std::invalid_argument("bitvector must have exactly 6 bits for erasure_pos");
-    }
-    
-    int result = 0;
-    
-    for(int i = 0; i < 6; i++) {
-        result <<= 1;
-        if(bitvec[i]) {
-            result |= 1;
-        }
-    }
-    
-    return result;
-}
-
-uint8_t beta_star_bits_to_uint8(const std::vector<bool>& bitvec) {
-    if(bitvec.size() != GlobalParams::BETA_STAR_BITS_SIZE) {
-        throw std::invalid_argument("bitvector must have exactly " + 
-                                    std::to_string(GlobalParams::BETA_STAR_BITS_SIZE) + 
-                                    " bits for beta_star");
-    }
-    
-    uint8_t result = 0;
-    
-    for(int i = 0; i < GlobalParams::BETA_STAR_BITS_SIZE; i++) {
-        result <<= 1;
-        if(bitvec[i]) {
-            result |= 1;
-        }
-    }
-    
-    return result;
-}
-
-int8_t calculate_sp(const double v_prime) {
-    
-    // Handle special cases
-    if (v_prime == 0.0 || !std::isfinite(v_prime)) {
-        return 0;  // or throw an exception
-    }
-    
-    // SP(v) = floor(log10(|v|))
-    // This gives the exponent in scientific notation
-    // e.g., 123.456 = 1.23456 × 10^2, so SP = 2
-    //       0.00456 = 4.56 × 10^-3, so SP = -3
-    int sp = (int)std::floor(std::log10(std::abs(v_prime)));
-    
-    return sp;
-}
-
-uint16_t calculate_alpha(uint8_t beta_star, int sp) {
-    // Formula from the paper: α = β - (SP(v) + 1)
-    int alpha = beta_star - (sp + 1);
-    
-    // Ensure alpha is non-negative (shouldn't happen with valid data)
-    if (alpha < 0) {
-        return 0;
-    }
-    
-    return static_cast<uint8_t>(alpha);
-}
-
 std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader) {
 
     cout << endl << "---------- SPARROW ELF DECODE ----------" << endl;
 
+    /*
     string check_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\signal_data.txt";
     SignalContext context(std::make_unique<FileSignalStrategy>(check_filepath));
     std::vector<double> check = context.getSignal();
+    */
 
     // Read binary
     vector<bool> bits = reader.getSignalCode();
@@ -358,12 +273,14 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             if(beta_stars[i]) cout << "ERROR: Beta Star is not 0 even though elf control bit is";
         }
         //cout << endl<< "Reconstructed: " << v_original << endl;
+        /*
         if(v_original != check[i]) {
             cout << "ERROR: Mismatching values: " << endl << "Original: " << check[i] << endl << "Reconstruction: " << v_original << endl;
             cout << "Reconstructed Residual: " << reconstructed_residuals_bitset[i] << endl << "Approximation: " << x_approx_bits[i] << endl << "v' (XOR): " << v_prime_bits << endl;
             cout << endl << "Reconstruction: "; print_bitvector(double_to_bitvector(v_original)); cout << endl;
             cout <<         "         Check: "; print_bitvector(double_to_bitvector(check[i])); cout << endl;
         }
+            */
         xs_reconstructed.push_back(v_original);
 
     }

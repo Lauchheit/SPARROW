@@ -104,7 +104,8 @@ def evaluate_all():
         3: "Zlib", 
         4: "LZ4", 
         5: "Zstandard",
-        6: "Sparrow Elf"
+        6: "Sparrow Elf",
+        7: "Gorilla Elf"
     }
     
     # Clear/create fresh log files at the start of each run
@@ -159,93 +160,59 @@ def evaluate_all():
 
 def plot_results(results):
     """Create comprehensive visualization of algorithm performance."""
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     fig.suptitle('Compression Algorithm Performance Comparison', fontsize=16, fontweight='bold')
     
     # Prepare data
     datasets = list(results.keys())
     algorithms = list(next(iter(results.values())).keys())
     
-    # 1. Compression Ratio by Dataset
-    ax = axes[0, 0]
     x = np.arange(len(datasets))
-    width = 0.15
+    width = 0.12  # Slightly narrower bars
     
+    # 1. Compression Ratio
+    ax = axes[0]
     for i, algo in enumerate(algorithms):
-        ratios = []
-        for ds in datasets:
-            if results[ds][algo]:
-                ratios.append(results[ds][algo]['ratio'])
-            else:
-                ratios.append(0)
+        ratios = [results[ds][algo]['ratio'] if results[ds][algo] else 0 
+                  for ds in datasets]
         ax.bar(x + i*width, ratios, width, label=algo)
     
-    ax.set_xlabel('Dataset')
-    ax.set_ylabel('Compression Ratio')
-    ax.set_title('Compression Ratio (lower is better)')
-    ax.set_xticks(x + width * 2)
-    ax.set_xticklabels(datasets)
-    ax.legend()
+    ax.set_xlabel('Dataset', fontsize=11)
+    ax.set_ylabel('Compression Ratio', fontsize=11)
+    ax.set_title('Compression Ratio\n(lower is better)', fontsize=12)
+    ax.set_xticks(x + width * 3)
+    ax.set_xticklabels(datasets, rotation=45, ha='right')
+    ax.legend(loc='upper left', fontsize=9)
     ax.grid(axis='y', alpha=0.3)
     
-    # 2. Encoding Speed
-    ax = axes[0, 1]
+    # 2. Encoding Time
+    ax = axes[1]
     for i, algo in enumerate(algorithms):
-        times = []
-        for ds in datasets:
-            if results[ds][algo] and results[ds][algo]['encode_time'] is not None:
-                times.append(results[ds][algo]['encode_time'])
-            else:
-                times.append(0)
+        times = [results[ds][algo]['encode_time'] if results[ds][algo] and results[ds][algo]['encode_time'] is not None else 0 
+                 for ds in datasets]
         ax.bar(x + i*width, times, width, label=algo)
     
-    ax.set_xlabel('Dataset')
-    ax.set_ylabel('Time (ms)')
-    ax.set_title('Encoding Time (lower is better)')
-    ax.set_xticks(x + width * 2)
-    ax.set_xticklabels(datasets)
-    ax.legend()
+    ax.set_xlabel('Dataset', fontsize=11)
+    ax.set_ylabel('Time (ms)', fontsize=11)
+    ax.set_title('Encoding Time\n(lower is better)', fontsize=12)
+    ax.set_xticks(x + width * 3)
+    ax.set_xticklabels(datasets, rotation=45, ha='right')
+    ax.legend(loc='upper left', fontsize=9)
     ax.grid(axis='y', alpha=0.3)
     
-    # 3. Decoding Speed
-    ax = axes[1, 0]
+    # 3. Decoding Time
+    ax = axes[2]
     for i, algo in enumerate(algorithms):
-        times = []
-        for ds in datasets:
-            if results[ds][algo] and results[ds][algo]['decode_time'] is not None:
-                times.append(results[ds][algo]['decode_time'])
-            else:
-                times.append(0)
+        times = [results[ds][algo]['decode_time'] if results[ds][algo] and results[ds][algo]['decode_time'] is not None else 0 
+                 for ds in datasets]
         ax.bar(x + i*width, times, width, label=algo)
     
-    ax.set_xlabel('Dataset')
-    ax.set_ylabel('Time (ms)')
-    ax.set_title('Decoding Time (lower is better)')
-    ax.set_xticks(x + width * 2)
-    ax.set_xticklabels(datasets)
-    ax.legend()
-    ax.grid(axis='y', alpha=0.3)
-    
-    # 4. Overall Performance Score (ratio * time)
-    ax = axes[1, 1]
-    for i, algo in enumerate(algorithms):
-        scores = []
-        for ds in datasets:
-            if results[ds][algo] and results[ds][algo]['encode_time'] is not None and results[ds][algo]['decode_time'] is not None:
-                r = results[ds][algo]
-                # Lower is better: ratio * total_time
-                score = r['ratio'] * (r['encode_time'] + r['decode_time'])
-                scores.append(score)
-            else:
-                scores.append(0)
-        ax.bar(x + i*width, scores, width, label=algo)
-    
-    ax.set_xlabel('Dataset')
-    ax.set_ylabel('Score (ratio × time)')
-    ax.set_title('Combined Performance Score (lower is better)')
-    ax.set_xticks(x + width * 2)
-    ax.set_xticklabels(datasets)
-    ax.legend()
+    ax.set_xlabel('Dataset', fontsize=11)
+    ax.set_ylabel('Time (ms)', fontsize=11)
+    ax.set_title('Decoding Time\n(lower is better)', fontsize=12)
+    ax.set_xticks(x + width * 3)
+    ax.set_xticklabels(datasets, rotation=45, ha='right')
+    ax.legend(loc='upper left', fontsize=9)
     ax.grid(axis='y', alpha=0.3)
     
     plt.tight_layout()
@@ -254,6 +221,7 @@ def plot_results(results):
     plt.show()
     
     print(f"\nVisualization saved as '{plot_path}'")
+
 
 
 def print_summary_table(results):

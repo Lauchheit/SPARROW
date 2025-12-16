@@ -13,75 +13,10 @@
 #include "../../helpers/file_operations.h"
 #include "../../input_strategies/source_context.h"
 
-#include "elf.h"
+#include "../elf_operations.h"
 #include "../sparrow/sparrow_helpers.h"
 
 using namespace std;
-
-
-
-double string_to_double(const std::string& str) {
-    std::string cleaned;
-    for (char c : str) {
-        if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
-            cleaned += c;
-        }
-    }
-    
-    // Replace comma with period (for European decimal notation)
-    for (char& c : cleaned) {
-        if (c == ',') {
-            c = '.';
-        }
-    }
-    
-    if (cleaned.empty()) {
-        throw std::invalid_argument("Empty string cannot be converted to double");
-    }
-    
-    try {
-        size_t pos;
-        double value = std::stod(cleaned, &pos);
-        
-        if (pos != cleaned.length()) {
-            throw std::invalid_argument("Invalid characters in string: " + str);
-        }
-        
-        return value;
-    } catch (const std::invalid_argument&) {
-        throw std::invalid_argument("Cannot convert to double: " + str);
-    } catch (const std::out_of_range&) {
-        throw std::out_of_range("Value out of range for double: " + str);
-    }
-}
-
-vector<double> vector_string_to_double(const vector<string>& string_vector) {
-    vector<double> result;
-    result.reserve(string_vector.size());
-    
-    for (const auto& str : string_vector) {
-        result.push_back(string_to_double(str));
-    }
-    
-    return result;
-}
-
-
-
-std::vector<bool> erasure_pos_to_bitvector(int erasure_pos) {
-    /*if(erasure_pos < 0 || erasure_pos > 52 + 11) {
-        throw std::invalid_argument("erasure_pos must be between 0 and 52");
-    }*/
-    
-    std::vector<bool> result;
-    result.reserve(6);
-    
-    for(int i = 5; i >= 0; i--) {
-        result.push_back((erasure_pos >> i) & 1);
-    }
-    
-    return result;
-}
 
 std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepath){
 
@@ -108,19 +43,9 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
         
         int beta_star = getSignificandCount(xs_strings[i]);
         // Check if xs[i] is exactly 10^-k for some integer k
-        bool is_power_of_ten = false;
-        int power = -1;
-        if(std::abs(xs[i]) > 0.0 && std::abs(xs[i]) <= 1.0 && beta_star == 1) {
-            for(int k = 0; k <= 308; ++k) {
-                double candidate = std::pow(10.0, -k);
-                if (std::abs(std::abs(xs[i]) - candidate) < 1e-14) {
-                    is_power_of_ten = true;
-                    power = k;
-                    break;
-                }
-            }
-}
-        if(is_power_of_ten) {
+        
+        
+        if(set_beta_star_0(xs[i], beta_star)) {
             beta_star = 0;
         }
         alphas[i] = getDecimalPlaces(xs_strings[i]);
@@ -249,27 +174,8 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
         //cout << " zc 1";
 
         
-        // Apply ELF erasure to XOR residual
-        //vector<bool> ri_bitvec(64);
-        auto xs_bitset = xs_bit[i];
-        int last_1_in_mantissa = -1;
-        for(int j = 12; j < 64; j++) {
-            bool is_1 = xs_bitset[63-j];
-            if(is_1){
-                last_1_in_mantissa = j;
-            }
-        }
-        //cout << endl << "Last 1: " << last_1_in_mantissa << endl;
-        //cout << endl << "Approximation: " << x_bit[i] << endl << "Actual Value: " << xs_bit[i] << endl << "XOR: " << r_bit[i]<< endl;        
-        
-        
-        // Calculate ELF metadata
-        int bits_to_erase = 52 - erasure_positions[i];
 
-        bool has_erasable_bits = last_1_in_mantissa > erasure_positions[i];
-        bool elf_worth = (beta_stars[i] < 16 && bits_to_erase > 4);
-
-        bool elf_applied = has_erasable_bits && elf_worth;
+        bool elf_applied = should_erase(xs_bit[i], erasure_positions[i], beta_stars[i]);
 
         // Sparrow encoding on ELF-erased residual
         bool sparrow_control_bit;

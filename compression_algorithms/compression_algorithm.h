@@ -1,5 +1,5 @@
-#ifndef ENCODER_H
-#define ENCODER_H
+#ifndef COMPRESSION_ALGORITHM_H
+#define COMPRESSION_ALGORITHM_H
 
 #include <vector>
 #include <string>
