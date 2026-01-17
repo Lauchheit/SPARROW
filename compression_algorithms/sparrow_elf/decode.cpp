@@ -18,11 +18,11 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
 
     cout << endl << "---------- SPARROW ELF DECODE ----------" << endl;
 
-    /*
+    
     string check_filepath = "C:\\Users\\cleme\\OneDrive\\uni\\Informatik\\Bachelorarbeit\\code\\SPARROW\\data\\signal_data.txt";
     SignalContext context(std::make_unique<FileSignalStrategy>(check_filepath));
     std::vector<double> check = context.getSignal();
-    */
+    
 
     // Read binary
     vector<bool> bits = reader.getSignalCode();
@@ -56,7 +56,7 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
 
         frequencies.push_back({frequency, amplitude, phase});
         
-        //cout << "Frequency " << i << ": f=" << frequency << ", A=" << amplitude << ", φ=" << phase << endl;
+        if(i<10) cout << "Frequency " << i << ": f=" << frequency << ", A=" << amplitude << ", φ=" << phase << endl;
     }
 
     // Read w_l (16 bits)
@@ -159,7 +159,7 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             }
 
             //cout << endl << "Reconstruction: "; 
-            print_bitvector(reconstructed_residual_bits);
+            //print_bitvector(reconstructed_residual_bits);
             //cout << endl<<endl;
 
             // Convert to bitset<64>
@@ -169,7 +169,7 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             // Case 2: LZ < w_l
             vector<bool> leading_zeros_bits(bits.begin() + pos, bits.begin() + pos + prefix_length);
             pos += prefix_length;
-            print_bitvector(leading_zeros_bits);
+            //print_bitvector(leading_zeros_bits);
 
             leading_zeros = 0;
             for(int j = 0; j < prefix_length; j++) {
@@ -183,6 +183,13 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             vector<bool> erasure_pos_bits(bits.begin() + pos, bits.begin() + pos + 6);
             pos += 6;
             significand_length = bitvector_to_erasure_pos(erasure_pos_bits);
+
+
+            // Catch case where data length is 64 and thus overflows the 5 bit
+            if (!elf_control_bit && significand_length == 0) {
+                significand_length = 64;
+                //cout << endl << "CAUGHT CASE EEP == 64" << endl;
+            }
 
             //cout << " eep "; print_bitvector(erasure_pos_bits);
 
@@ -273,17 +280,18 @@ std::vector<double> SparrowElfCompression::decode(const BinaryFileReader& reader
             if(beta_stars[i]) cout << "ERROR: Beta Star is not 0 even though elf control bit is";
         }
         //cout << endl<< "Reconstructed: " << v_original << endl;
-        /*
+        
         if(v_original != check[i]) {
-            cout << "ERROR: Mismatching values: " << endl << "Original: " << check[i] << endl << "Reconstruction: " << v_original << endl;
-            cout << "Reconstructed Residual: " << reconstructed_residuals_bitset[i] << endl << "Approximation: " << x_approx_bits[i] << endl << "v' (XOR): " << v_prime_bits << endl;
+            cout << "ERROR: Mismatching values: ";
+        
+            cout << endl << "Original: " << check[i] << endl << "Reconstruction: " << v_original << endl;
+            cout << "Reconstructed Residual: " << reconstructed_residuals_bitset[i] << endl << "Approximation: " << x_approx_bits[i]  << " : " << bitset_to_double(x_approx_bits[i]) << endl << "v' (XOR): " << v_prime_bits << endl;
             cout << endl << "Reconstruction: "; print_bitvector(double_to_bitvector(v_original)); cout << endl;
             cout <<         "         Check: "; print_bitvector(double_to_bitvector(check[i])); cout << endl;
         }
-            */
+
         xs_reconstructed.push_back(v_original);
 
     }
-
     return xs_reconstructed;
 }

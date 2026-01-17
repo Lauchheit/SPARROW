@@ -59,8 +59,6 @@ std::vector<bool> GorillaElfCompression::encode(const std::string& input_filepat
 
     bool elf_applied_first = should_erase(first_bits, erasure_pos_0, beta_0);
 
-    
-
     output.push_back(elf_applied_first);
     if (elf_applied_first) {
         erase_bitset(first_bits, erasure_pos_0);

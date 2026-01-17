@@ -57,11 +57,11 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
     vector<FrequencyComponent> frequencies = selectOptimalFrequencies(xs, N);
     vector<double> x = reconstructSignal(frequencies, N, N);
 
-    /*cout << "Approximated Frequencies: " << frequencies.size() << endl;
+    cout << "Approximated Frequencies: " << frequencies.size() << endl;
     for(int i=0; i< std::min(frequencies.size(), static_cast<size_t>(10)); i++){
         cout << frequencies[i].frequency << ": " << frequencies[i].amplitude <<" | " << frequencies[i].phase<< endl;
     }
-    */
+    
     // Compute XOR residuals
     vector<bitset<64>> x_bit = vector_double_to_bits(x);
     vector<bitset<64>> xs_bit = vector_double_to_bits(xs);
@@ -161,7 +161,7 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
         //cout <<endl<< "-----------" << endl << "idx0:"<<i<<"."<<endl;
         auto ri = r_bit[i];
 
-        //cout << endl<< "Number: "<< xs_strings[i] << endl << "Alpha: "<< alphas[i] << endl << "Beta: " << beta_stars[i] << endl << "Erasure Pos: " << erasure_positions[i] <<endl;
+        //cout << endl<< "Number: "<< xs_strings[i] << endl << "Approximation: " << x[i] << endl << "Alpha: "<< alphas[i] << endl << "Beta: " << beta_stars[i] << endl << "Erasure Pos: " << erasure_positions[i] <<endl;
        
 
         //zero control bit 
@@ -252,8 +252,15 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
         }
 
         //cout << endl << "d size: " << data_length << endl;
+
+        // Catch case where data length is 64 and thus overflows the 5 bit
+        int encoded_length = data_length;
+        if (!sparrow_control_bit && !elf_applied && data_length == 64) {
+            encoded_length = 0;  // 0 represents 64 in this specific case
+            //cout << endl << "THREW CASE EEP == 64" << endl;
+        }
         
-        vector<bool> meaningful_bitset_length = erasure_pos_to_bitvector(data_length);
+        vector<bool> meaningful_bitset_length = erasure_pos_to_bitvector(encoded_length);
         //cout << " eep "; print_bitvector(meaningful_bitset_length);
 
         output.insert(output.end(), meaningful_bitset_length.begin(), meaningful_bitset_length.end());
@@ -273,7 +280,7 @@ std::vector<bool> SparrowElfCompression::encode(const std::string& input_filepat
     
     int compression_size = output.size();
 
-    //cout << endl << "Encoded: " << compression_size << endl << "Original: " << 64 * N << endl << "Ratio: " << (double)compression_size/(64*N) << endl;
+    cout << endl << "Encoded: " << compression_size << endl << "Original: " << 64 * N << endl << "Ratio: " << (double)compression_size/(64*N) << endl;
 
     return output;
 }

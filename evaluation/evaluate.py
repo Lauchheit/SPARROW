@@ -23,11 +23,12 @@ os.makedirs(logs_dir, exist_ok=True)
 def get_datasets():
     """Retrieve all test datasets."""
     return {
-        'Tidal': data_client.NOAA_tidal_data('20231031', '20231231', interval='6'),
-        'Solar 1': data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation'),
-        'Solar 2': data_client.nasa_power_solar_irradiance(52.52, 13.41, '2023-01-01', '2023-12-31', 'hourly'),
         'Sinusoid': data_client.sinusoid(10000, 1, 1),
-        'Sinusoid Rounded': data_client.sinusoid(10000, 1, 1, 2)
+        'Sinusoid Rounded': data_client.sinusoid(10000, 1, 1, 2),
+        'Tidal': data_client.NOAA_tidal_data('20231031', '20231231', interval='6'),
+        'Solar Satellite Radiation (Open-Meteo)': data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation'),
+        'Solar Irradiance (NASA)': data_client.nasa_power_solar_irradiance(52.52, 13.41, '2023-01-01', '2023-12-31', 'hourly'),
+        'Heathrow Hourly Temperature': data_client.heathrow_temperature('2024-01-01', '2024-05-31')
     }
 
 
@@ -63,7 +64,7 @@ def run_algorithm(algo_id, algo_name, data, dataset_name):
         
         # Run algorithm
         result = subprocess.run(
-            ['compare.exe', str(algo_id)], 
+            [exe_path, str(algo_id)], 
             stdout=algo_log,
             stderr=algo_log,  # Also capture stderr in log
             text=True
@@ -162,7 +163,7 @@ def evaluate_all():
 
 def plot_results(results):
     """Create comprehensive visualization of algorithm performance."""
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
     fig.suptitle('Compression Algorithm Performance Comparison', fontsize=16, fontweight='bold')
     
     # Prepare data
@@ -184,7 +185,6 @@ def plot_results(results):
     ax.set_title('Compression Ratio\n(lower is better)', fontsize=12)
     ax.set_xticks(x + width * 3)
     ax.set_xticklabels(datasets, rotation=45, ha='right')
-    ax.legend(loc='upper left', fontsize=9)
     ax.grid(axis='y', alpha=0.3)
     
     # 2. Encoding Time
@@ -199,7 +199,6 @@ def plot_results(results):
     ax.set_title('Encoding Time\n(lower is better)', fontsize=12)
     ax.set_xticks(x + width * 3)
     ax.set_xticklabels(datasets, rotation=45, ha='right')
-    ax.legend(loc='upper left', fontsize=9)
     ax.grid(axis='y', alpha=0.3)
     
     # 3. Decoding Time
@@ -214,10 +213,15 @@ def plot_results(results):
     ax.set_title('Decoding Time\n(lower is better)', fontsize=12)
     ax.set_xticks(x + width * 3)
     ax.set_xticklabels(datasets, rotation=45, ha='right')
-    ax.legend(loc='upper left', fontsize=9)
     ax.grid(axis='y', alpha=0.3)
     
+    # Add a single legend to the right of the subplots
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='center left', bbox_to_anchor=(1.0, 0.5), fontsize=10)
+    
     plt.tight_layout()
+    plt.subplots_adjust(right=0.85)  # Make room for the legend
+    
     plot_path = os.path.join(script_dir, '..', 'compression_comparison.png')
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.show()
