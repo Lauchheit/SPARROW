@@ -39,23 +39,40 @@ def generate_overlapping_intervals(start, end, window_days, n):
 
 def get_datasets(n_runs):
     datasets = {
+        "Sinusoid": [],
+        "Sinusoid Rounded": [],
         "Tidal": [],
         "Solar 1": [],
         "Solar 2": [],
         "Heathrow Temperature": [],
-        "Sinusoid": [],
-        "Sinusoid Rounded": []
+        "Moon Distance": [],
+        "Stock Prices": [],
+        "Water Levels": []
     }
 
     dataset_names = {
+        "Sinusoid": "Sinusoid",
+        "Sinusoid Rounded": f"Sinusoid Rounded ({ROUNDING_DIGIT} Digits)",
         "Tidal": "Tidal",
         "Solar 1": "Solar Satellite Radiation (Open-Meteo)",
         "Solar 2": "Solar Irradiance (NASA)",
         "Heathrow Temperature": "Heathrow Temperature",
-        "Sinusoid": "Sinusoid",
-        "Sinusoid Rounded": f"Sinusoid Rounded ({ROUNDING_DIGIT} Digits)"
+        "Moon Distance": "Moon Distance (NASA HORIZONS)",
+        "Stock Prices": "Stock Prices (Yahoo Finance)",
+        "Water Levels": "Water Levels (USGS)"
     }
 
+    # Popular stocks with different volatility patterns
+    stock_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'JPM', 'JNJ', 'WMT', 'V', 'PG']
+    
+    # USGS sites with tidal influence (periodic!)
+    usgs_sites = [
+        '01646500',  # Potomac River at Little Falls, DC
+        '01474500',  # Delaware River at Philadelphia, PA
+        '02171650',  # Lake Moultrie near Pineville, SC
+        '08574680',  # Trinity River at Dallas, TX
+        '14211720',  # Willamette River at Portland, OR
+    ]
 
     # --- Tidal (overlapping 60-day windows)
     tidal_intervals = generate_overlapping_intervals(
@@ -108,6 +125,52 @@ def get_datasets(n_runs):
         data = data_client.heathrow_temperature(s_iso, e_iso, "temperature_2m")
         if data is not None:
             datasets["Heathrow Temperature"].append(data)
+
+    # --- Moon Distance (overlapping 365-day/1-year windows)
+    moon_intervals = generate_overlapping_intervals(
+        "20200101", "20231231", window_days=365, n=n_runs
+    )
+    
+    for s, e in moon_intervals:
+        s_iso = f"{s[:4]}-{s[4:6]}-{s[6:]}"
+        e_iso = f"{e[:4]}-{e[4:6]}-{e[6:]}"
+        
+        data = data_client.nasa_horizons_moon_distance(s_iso, e_iso, step='6h')
+        if data is not None:
+            datasets["Moon Distance"].append(data)
+
+    # --- Stock Prices (overlapping 180-day windows, different stocks)  <--- NEU
+    stock_intervals = generate_overlapping_intervals(
+        "20230101", "20231231", window_days=180, n=n_runs
+    )
+    
+    for i, (s, e) in enumerate(stock_intervals):
+        s_iso = f"{s[:4]}-{s[4:6]}-{s[6:]}"
+        e_iso = f"{e[:4]}-{e[4:6]}-{e[6:]}"
+        
+        # Cycle through different stocks
+        symbol = stock_symbols[i % len(stock_symbols)]
+        
+        data = data_client.yfinance_stock_prices(symbol, s_iso, e_iso)
+        if data is not None:
+            datasets["Stock Prices"].append(data)
+
+    # --- Water Levels (overlapping 60-day windows, different sites)  <--- NEU
+    water_intervals = generate_overlapping_intervals(
+        "20230101", "20231231", window_days=60, n=n_runs
+    )
+    
+    for i, (s, e) in enumerate(water_intervals):
+        s_iso = f"{s[:4]}-{s[4:6]}-{s[6:]}"
+        e_iso = f"{e[:4]}-{e[4:6]}-{e[6:]}"
+        
+        # Cycle through different USGS sites
+        site = usgs_sites[i % len(usgs_sites)]
+        
+        # Use instantaneous values (15-min intervals) for strong periodicity
+        data = data_client.usgs_water_levels(site, s_iso, e_iso, '00065')
+        if data is not None:
+            datasets["Water Levels"].append(data)
 
     # --- Sinusoid (different, random frequencies)
     for _ in range(n_runs):

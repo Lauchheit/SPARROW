@@ -28,7 +28,10 @@ def get_datasets():
         'Tidal': data_client.NOAA_tidal_data('20231031', '20231231', interval='6'),
         'Solar Satellite Radiation (Open-Meteo)': data_client.open_meteo_data(52.52, 13.41, '2023-01-01', '2023-12-31', 'shortwave_radiation'),
         'Solar Irradiance (NASA)': data_client.nasa_power_solar_irradiance(52.52, 13.41, '2023-01-01', '2023-12-31', 'hourly'),
-        'Heathrow Hourly Temperature': data_client.heathrow_temperature('2024-01-01', '2024-05-31')
+        'Heathrow Hourly Temperature': data_client.heathrow_temperature('2024-01-01', '2024-05-31'),
+        'Moon Distance (NASA)' : data_client.nasa_horizons_moon_distance('2024-01-01', '2025-01-01', step='6h'),
+        'Alphavantage Stock Prices': data_client.alphavantage_stock_prices(),
+        'Water Levels': data_client.usgs_water_levels()
     }
 
 
@@ -53,7 +56,9 @@ def run_algorithm(algo_id, algo_name, data, dataset_name):
     # Create algorithm-specific log file path
     safe_algo_name = algo_name.lower().replace(' ', '_')
     algo_log_path = os.path.join(logs_dir, f"{safe_algo_name}.log")
-    
+
+    exe_dir = os.path.dirname(exe_path)
+
     # Open log file in append mode
     with open(algo_log_path, 'a') as algo_log:
         algo_log.write(f"\n{'='*80}\n")
@@ -67,7 +72,8 @@ def run_algorithm(algo_id, algo_name, data, dataset_name):
             [exe_path, str(algo_id)], 
             stdout=algo_log,
             stderr=algo_log,  # Also capture stderr in log
-            text=True
+            text=True,
+            cwd=exe_dir
         )
     
     # Read timing from JSON file
@@ -257,3 +263,4 @@ if __name__ == "__main__":
     print_summary_table(results)
     plot_results(results)
     
+

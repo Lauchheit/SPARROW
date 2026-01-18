@@ -223,63 +223,7 @@ def nasa_power_solar_irradiance(latitude, longitude, start_date, end_date, tempo
     return values
 
 
-def openaq_air_quality(city='Los Angeles', parameter='pm25', date_from='2024-01-01', date_to='2024-01-31')->np.array:
-    """
-    Air quality measurements - daily/weekly periodicity (traffic patterns)
-    Gorilla performance: Good if high-frequency measurements available
-    """
-    url = "https://api.openaq.org/v2/measurements"
-    
-    params = {
-        'city': city,
-        'parameter': parameter,
-        'date_from': date_from,
-        'date_to': date_to,
-        'limit': 10000
-    }
-    
-    print(f"Fetching air quality data for {city}...")
-    response = requests.get(url, params=params)
-    
-    if response.status_code != 200:
-        print(f"Error: Status code {response.status_code}")
-        return None
-    
-    data = response.json()
-    
-    if 'results' not in data:
-        print(f"Error in response: {data}")
-        return None
-    
-    # Sort by time and extract values
-    results = sorted(data['results'], key=lambda x: x['date']['utc'])
-    values = [r['value'] for r in results]
-    
-    print(f"Retrieved {len(values)} data points")
-    return values
-
-
 def heathrow_temperature(start_date, end_date, temperature_type='temperature_2m')->np.array:
-    """
-    Fetch historical temperature data from Heathrow weather station
-    
-    Parameters:
-    -----------
-    start_date : str
-        Start date in format 'YYYY-MM-DD'
-    end_date : str
-        End date in format 'YYYY-MM-DD'
-    temperature_type : str
-        Type of temperature data to fetch. Options:
-        - 'temperature_2m': 2m air temperature (default)
-        - 'temperature_2m_max': Daily maximum temperature
-        - 'temperature_2m_min': Daily minimum temperature
-        - 'apparent_temperature': Apparent temperature (feels like)
-    
-    Returns:
-    --------
-    np.array : Hourly temperature values in Celsius
-    """
     # Heathrow coordinates
     latitude = 51.4700
     longitude = -0.4543
@@ -323,3 +267,186 @@ def heathrow_temperature(start_date, end_date, temperature_type='temperature_2m'
     print(f"Retrieved {len(values)} temperature readings")
     
     return values
+
+
+def nasa_horizons_moon_distance(start_date, end_date, step='1h'):
+    url = "https://ssd.jpl.nasa.gov/api/horizons.api"
+    
+    # Moon's NAIF ID is 301, Earth center is 500@399
+    params = {
+        'format': 'text',
+        'COMMAND': '301',  # Moon
+        'CENTER': '500@399',  # Earth center
+        'START_TIME': f"'{start_date}'",
+        'STOP_TIME': f"'{end_date}'",
+        'STEP_SIZE': f"'{step}'",
+        'QUANTITIES': '20',  # Observer range & range-rate
+    }
+    
+    print(f"Fetching Moon distance data from {start_date} to {end_date}...")
+    
+    response = requests.get(url, params=params)
+    
+    if response.status_code != 200:
+        print(f"Error: Status code {response.status_code}")
+        return None
+    
+    # Parse the text response
+    text = response.text
+    
+    # Find the data section (between $$SOE and $$EOE markers)
+    try:
+        start_marker = '$$SOE'
+        end_marker = '$$EOE'
+        start_idx = text.index(start_marker) + len(start_marker)
+        end_idx = text.index(end_marker)
+        data_section = text[start_idx:end_idx].strip()
+    except ValueError:
+        print("Error: Could not find data markers in response")
+        return None
+    
+    # Parse distances (column varies, but range is typically after the date)
+    values = []
+    for line in data_section.split('\n'):
+        if line.strip():
+            parts = line.split()
+            try:
+                # Distance is typically in AU, convert to km
+                # Format: JDTDB, Calendar_Date, range(AU), range_rate(AU/day)
+                distance_au = float(parts[-2])  # Second to last column
+                distance_km = distance_au * 149597870.7  # AU to km
+                values.append(distance_km)
+            except (ValueError, IndexError):
+                continue
+    
+    print(f"Retrieved {len(values)} distance measurements")
+    
+    return np.array(values)
+
+def yfinance_stock_prices(symbol='IBM', start_date='2023-01-01', end_date='2024-01-01'):
+    try:
+        import yfinance as yf
+    except ImportError:
+        print("Please install yfinance: pip install yfinance")
+        return None
+    
+    print(f"Fetching stock data for {symbol} from {start_date} to {end_date}...")
+    
+    try:
+        stock = yf.Ticker(symbol)
+        df = stock.history(start=start_date, end=end_date)
+        
+        if df.empty:
+            print(f"No data retrieved for {symbol}")
+            return None
+        
+        values = df['Close'].values
+        
+        print(f"Retrieved {len(values)} daily closing prices for {symbol}")
+        
+        return np.array(values)
+    
+    except Exception as e:
+        print(f"Error fetching stock data: {e}")
+        return None
+
+def alphavantage_stock_prices(symbol='IBM', outputsize='compact', api_key=None):
+    if api_key is None:
+        api_key = "HPB425WN7JNA85NQ"  # Get from https://www.alphavantage.co/support/#api-key
+    
+    url = "https://www.alphavantage.co/query"
+    
+    params = {
+        'function': 'TIME_SERIES_DAILY',
+        'symbol': symbol,
+        'outputsize': outputsize,
+        'apikey': api_key
+    }
+    
+    print(f"Fetching stock data for {symbol}...")
+    
+    response = requests.get(url, params=params)
+    
+    if response.status_code != 200:
+        print(f"Error: Status code {response.status_code}")
+        return None
+    
+    data = response.json()
+    
+    # Check for API errors
+    if 'Error Message' in data:
+        print(f"API Error: {data['Error Message']}")
+        return None
+    
+    if 'Note' in data:
+        print(f"API Limit: {data['Note']}")
+        return None
+    
+    if 'Time Series (Daily)' not in data:
+        print("No time series data in response")
+        print(data)
+        return None
+    
+    # Extract closing prices and sort by date
+    time_series = data['Time Series (Daily)']
+    dates = sorted(time_series.keys())
+    
+    values = [float(time_series[date]['4. close']) for date in dates]
+    
+    print(f"Retrieved {len(values)} daily closing prices for {symbol}")
+    
+    return np.array(values)
+
+def usgs_water_levels(site_code='01646500', start_date='2024-01-01', end_date='2024-12-31', parameter='00065'):
+    url = "https://waterservices.usgs.gov/nwis/iv/"
+    
+    params = {
+        'format': 'json',
+        'sites': site_code,
+        'startDT': start_date,
+        'endDT': end_date,
+        'parameterCd': parameter,
+        'siteStatus': 'all'
+    }
+    
+    print(f"Fetching USGS water data for site {site_code} from {start_date} to {end_date}...")
+    
+    response = requests.get(url, params=params)
+    
+    if response.status_code != 200:
+        print(f"Error: Status code {response.status_code}")
+        print(response.text)
+        return None
+    
+    data = response.json()
+    
+    # Navigate through the JSON structure
+    try:
+        time_series = data['value']['timeSeries']
+        
+        if not time_series:
+            print("No time series data found for this site/parameter combination")
+            return None
+        
+        # Get the first time series (usually there's only one)
+        values_data = time_series[0]['values'][0]['value']
+        
+        # Extract values
+        values = [float(entry['value']) for entry in values_data 
+                  if entry['value'] not in ['-999999', 'Ice']]  # Filter out error codes
+        
+        if not values:
+            print("No valid data points found")
+            return None
+        
+        print(f"Retrieved {len(values)} water measurements")
+        
+        return np.array(values)
+    
+    except (KeyError, IndexError) as e:
+        print(f"Error parsing response: {e}")
+        print("Response structure:", data.keys() if isinstance(data, dict) else type(data))
+        return None
+
+
+from matplotlib import pyplot as plt
