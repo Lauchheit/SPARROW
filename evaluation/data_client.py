@@ -3,7 +3,8 @@ import requests
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
-
+from dotenv import load_dotenv
+import os
 def generate_white_noise(len, s):
         return np.random.normal(loc=0, scale=s, size=len)
 
@@ -352,7 +353,7 @@ def yfinance_stock_prices(symbol='IBM', start_date='2023-01-01', end_date='2024-
 
 def alphavantage_stock_prices(symbol='IBM', outputsize='compact', api_key=None):
     if api_key is None:
-        api_key = "HPB425WN7JNA85NQ"  # Get from https://www.alphavantage.co/support/#api-key
+        api_key = os.getenv('ALPHA_VANTAGE')  # Get from https://www.alphavantage.co/support/#api-key
     
     url = "https://www.alphavantage.co/query"
     

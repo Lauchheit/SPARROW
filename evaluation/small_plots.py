@@ -36,7 +36,7 @@ def plot_frequency_bin_performance(iter):
     ratios = []
     frequencies = []
     for i in range(0, iter+1):
-        fs = 25 + 5*i/iter
+        fs = 25 + 1*i/iter
         print(fs)
         data = data_client.sinusoid_f(10000, 10000, fs, 5)
         results = evaluate.run_algorithm(1,"Sparrow",data,"Sinusoid")
@@ -219,6 +219,4 @@ def plot_decimal_point_performance(iter):
     ax.grid(True, alpha=0.3)
     plt.show()
 
-# Example usage:
-plot_decimal_point_performance(10)
-
+plot_frequency_bin_performance(100)
