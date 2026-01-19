@@ -1,7 +1,5 @@
-import math
 import requests
 from datetime import datetime, timedelta
-import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 import os

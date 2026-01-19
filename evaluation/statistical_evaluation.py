@@ -1,8 +1,6 @@
 import os
 import numpy as np
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-from scipy import stats
 
 import data_client
 import plotting

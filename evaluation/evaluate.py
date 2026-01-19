@@ -2,11 +2,8 @@ import subprocess
 import os
 import numpy as np
 import data_client
-import sys
 from datetime import datetime
 import matplotlib.pyplot as plt
-import pandas as pd
-
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(script_dir, "..", "data")
