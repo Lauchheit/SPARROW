@@ -11,8 +11,8 @@ def sinusoid(duration, fs, noise_factor, rounding_factor = 15)->np.array:
     samples = int(fs * duration)
     t = np.linspace(0, duration, samples)
     noise = generate_white_noise(len(t), noise_factor)
-    x = 1000 * np.sin(2 * np.pi * t * 8.4) + 10000*np.sin(2 * np.pi * t*36.221) + noise + 2367.4
-    return [round(v, rounding_factor) for v in x]
+    x = 150 * np.sin(2 * np.pi * t * 14 + 2.5) + 210*np.sin(2 * np.pi * t*5-8) + noise
+    return [round(v, rounding_factor) for v in x], noise
 
 def sinusoid_snr(amplitude, N, snr, rounding_factor=15):
     # N samples spanning duration=1.0
@@ -447,5 +447,3 @@ def usgs_water_levels(site_code='01646500', start_date='2024-01-01', end_date='2
         print("Response structure:", data.keys() if isinstance(data, dict) else type(data))
         return None
 
-
-from matplotlib import pyplot as plt

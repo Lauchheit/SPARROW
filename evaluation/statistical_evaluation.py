@@ -137,7 +137,7 @@ def get_datasets(n_runs):
         if data is not None:
             datasets["Moon Distance"].append(data)
 
-    # --- Stock Prices (overlapping 180-day windows, different stocks)  <--- NEU
+    # --- Stock Prices (overlapping 180-day windows, different stocks)
     stock_intervals = generate_overlapping_intervals(
         "20230101", "20231231", window_days=180, n=n_runs
     )
@@ -153,7 +153,7 @@ def get_datasets(n_runs):
         if data is not None:
             datasets["Stock Prices"].append(data)
 
-    # --- Water Levels (overlapping 60-day windows, different sites)  <--- NEU
+    # --- Water Levels (overlapping 60-day windows, different sites)
     water_intervals = generate_overlapping_intervals(
         "20230101", "20231231", window_days=60, n=n_runs
     )
