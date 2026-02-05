@@ -111,7 +111,7 @@ def plot_encoding_time(results, dataset_names):
 
         if means:
             ax.bar(alg_names, means)
-            ax.set_ylabel("Encoding Time (s)")
+            ax.set_ylabel("Encoding Time (ms)")
             ax.set_title(f"{title}")
             ax.tick_params(axis='x', rotation=45)
             ax.grid(axis="y", linestyle="--", alpha=0.6)
@@ -151,7 +151,7 @@ def plot_decoding_time(results, dataset_names):
 
         if means:
             ax.bar(alg_names, means)
-            ax.set_ylabel("Decoding Time (s)")
+            ax.set_ylabel("Decoding Time (ms)")
             ax.set_title(f"{title}")
             ax.tick_params(axis='x', rotation=45)
             ax.grid(axis="y", linestyle="--", alpha=0.6)

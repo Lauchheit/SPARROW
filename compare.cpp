@@ -75,7 +75,6 @@ int main(int argc, char* argv[]){
             return 1;
     }
 
-    // Use relative paths - works from any directory
     string input_filepath = "data/signal_data.txt";
     string code_filepath = "data/code.bin";
     string decode_filepath = "data/decode.txt";
@@ -116,7 +115,6 @@ int main(int argc, char* argv[]){
                  << "Reconstruction: " << reconstructed.size() << endl;
             delete algorithm;
             
-            // Still write timing even on error
             ofstream timing_file(timing_filepath);
             timing_file << "{\n";
             timing_file << "  \"algorithm\": \"" << algo_name << "\",\n";
